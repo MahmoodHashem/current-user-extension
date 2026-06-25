@@ -43,7 +43,7 @@ class IdentityWidget {
     // Load account list from storage (async, once per page lifetime).
     await this.guard.init();
 
-    // When storage changes (popup adds/removes an account), re-evaluate immediately.
+    // When guard state changes (storage update, new comments, toggle flip) propagate everywhere.
     this.guard.setOnStateChange(state => {
       if (state.isBlocked) {
         this.commentAvatar.suppress();
@@ -52,6 +52,7 @@ class IdentityWidget {
         this.guardOverlay.clear();
         this.commentAvatar.unsuppress();
       }
+      this.topbar.updateGuardState(state);
     });
 
     this.listenForNavigation();
@@ -90,7 +91,7 @@ class IdentityWidget {
     }
 
     this.retryCount = 0;
-    this.topbar.mount(account);
+    this.topbar.mount(account, this.guard);
     this.commentAvatar.mount(account);
   }
 

@@ -267,6 +267,198 @@ export const STYLES = `
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
+   GUARD BUTTON  (in the bottom bar)
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.gh-id-guard-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-fg-muted, #656d76);
+  cursor: pointer;
+  padding: 0;
+  margin-left: auto;
+  flex-shrink: 0;
+  transition: background 0.12s, color 0.12s;
+}
+.gh-id-guard-btn:hover {
+  background: var(--color-neutral-muted, rgba(175,184,193,0.2));
+  color: var(--color-fg-default, #1f2328);
+}
+.gh-id-guard-btn:focus-visible {
+  outline: 2px solid var(--color-accent-fg, #0969da);
+  outline-offset: 1px;
+}
+
+/* Status dot on the shield */
+.gh-id-guard-dot {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  border: 1.5px solid var(--color-canvas-default, #fff);
+  pointer-events: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   GUARD POPOVER
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.gh-guard-popover {
+  position: fixed;
+  z-index: 200;
+  background: var(--color-canvas-default, #ffffff);
+  border: 1px solid var(--color-border-default, #d0d7de);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(31, 35, 40, 0.2);
+  padding: 14px;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  pointer-events: none;
+}
+.gh-guard-popover--open {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: all;
+}
+
+.gh-guard-pop-header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 5px;
+  color: var(--color-fg-default, #1f2328);
+}
+.gh-guard-pop-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+.gh-guard-pop-desc {
+  font-size: 11px;
+  color: var(--color-fg-muted, #656d76);
+  line-height: 1.5;
+  margin-bottom: 10px;
+}
+
+.gh-guard-pop-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.gh-guard-pop-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.1s;
+}
+.gh-guard-pop-row:hover { background: var(--color-neutral-muted, rgba(175,184,193,0.15)); }
+
+.gh-guard-pop-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid var(--color-border-default, #d0d7de);
+  object-fit: cover;
+  flex-shrink: 0;
+}
+.gh-guard-pop-name {
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--color-fg-default, #1f2328);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gh-guard-pop-status {
+  font-size: 10px;
+  color: var(--color-fg-muted, #656d76);
+  flex-shrink: 0;
+}
+
+.gh-guard-pop-empty {
+  font-size: 12px;
+  color: var(--color-fg-muted, #656d76);
+  padding: 6px 0;
+  font-style: italic;
+}
+.gh-guard-pop-current {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-border-muted, #d8dee4);
+  font-size: 11px;
+  color: var(--color-fg-muted, #656d76);
+}
+
+/* ── Toggle switch ─────────────────────────────────────────────────────── */
+
+.gh-guard-switch {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+}
+.gh-guard-switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+
+.gh-guard-track {
+  display: inline-flex;
+  align-items: center;
+  width: 34px;
+  height: 19px;
+  border-radius: 10px;
+  background: var(--color-neutral-muted, #d0d7de);
+  transition: background 0.18s;
+  padding: 2px;
+  cursor: pointer;
+}
+.gh-guard-thumb {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  transition: transform 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+}
+input:checked ~ .gh-guard-track { background: #1a7f37; }
+input:checked ~ .gh-guard-track .gh-guard-thumb { transform: translateX(15px); }
+
+/* ── Dark mode ─────────────────────────────────────────────────────────── */
+
+[data-color-mode="dark"] .gh-guard-popover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+[data-color-mode="dark"] .gh-guard-track { background: #30363d; }
+[data-color-mode="dark"] input:checked ~ .gh-guard-track { background: #238636; }
+
+/* ── High contrast ─────────────────────────────────────────────────────── */
+
+@media (forced-colors: active) {
+  .gh-guard-popover { border: 2px solid ButtonText; }
+  .gh-guard-track   { border: 1px solid ButtonText; forced-color-adjust: none; }
+}
+
+/* ── Reduced motion ────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .gh-guard-popover { transition: none; }
+  .gh-guard-track, .gh-guard-thumb { transition: none; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
    ACCOUNT GUARD — warning banner + blocked-composer overlay
    ══════════════════════════════════════════════════════════════════════════ */
 
