@@ -126,7 +126,7 @@ export class CommentAvatar {
          aria-label="View ${this.esc(account.username)}'s GitHub profile">
         <img
           class="gh-id-cb-avatar"
-          src="${this.esc(account.avatarUrl)}?size=112"
+          src="${this.esc(account.avatarUrl)}?size=124"
           alt="${this.esc(account.username)}'s avatar"
           width="56"
           height="56"

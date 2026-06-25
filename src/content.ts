@@ -1,7 +1,7 @@
 // ─── GitHub Account Identity — Content Script ─────────────────────────────────
 //
 // Orchestrates:
-//   • Topbar — fixed strip below GitHub's header(s), always visible on scroll.
+//   • Bottom bar — fixed strip at viewport bottom; hides when comment composer visible.
 //   • CommentAvatar — "Commenting as" banner injected above every comment form.
 //
 // Handles GitHub SPA navigation (PJAX / Turbo / soft-nav / popstate) and
