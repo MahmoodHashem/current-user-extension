@@ -1,20 +1,19 @@
 {
   "manifest_version": 3,
-  "name": "GitHub Account Identity",
-  "version": "1.0.0",
-  "description": "Always displays the current GitHub account identity while viewing issues, PRs, and discussions — prevents accidental wrong-account actions.",
-  "permissions": [],
+  "name": "GitHub Account Identity & Guard",
+  "version": "2.0.0",
+  "description": "Shows current account identity on issues/PRs and blocks wrong-account interactions.",
+  "permissions": ["storage"],
   "host_permissions": [
     "https://github.com/*"
   ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "GitHub Account Guard — manage accounts"
+  },
   "content_scripts": [
     {
-      "matches": [
-        "https://github.com/*/*/issues/*",
-        "https://github.com/*/*/pull/*",
-        "https://github.com/*/*/discussions/*",
-        "https://github.com/orgs/*/discussions/*"
-      ],
+      "matches": ["https://github.com/*"],
       "js": ["dist/content.js"],
       "run_at": "document_idle"
     }

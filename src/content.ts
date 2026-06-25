@@ -1,17 +1,21 @@
-// ─── GitHub Account Identity — Content Script ─────────────────────────────────
+// ─── GitHub Account Identity & Guard — Content Script ─────────────────────────
 //
-// Orchestrates:
-//   • Bottom bar — fixed strip at viewport bottom; hides when comment composer visible.
-//   • CommentAvatar — "Commenting as" banner injected above every comment form.
+// Runs on ALL github.com pages (intentional — guard must catch load-more
+// buttons and author lists on any page it navigates to).
 //
-// Handles GitHub SPA navigation (PJAX / Turbo / soft-nav / popstate) and
-// viewport resize, re-mounting components as needed.
+// Identity features (bottom bar, comment avatar banner) activate only on
+// issue / PR / discussion pages.
+//
+// Guard features (wrong-account blocking) activate on issue / PR pages where
+// there are comments from other known accounts.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { Topbar } from './components/topbar';
-import { CommentAvatar } from './components/commentAvatar';
+import { Topbar }         from './components/topbar';
+import { CommentAvatar }  from './components/commentAvatar';
+import { GuardOverlay }   from './components/guardOverlay';
 import { AccountExtractor } from './services/accountExtractor';
-import { STYLES } from './styles';
+import { AccountGuard }   from './services/accountGuard';
+import { STYLES }         from './styles';
 
 const NAV_DEBOUNCE_MS  = 400;
 const RETRY_INTERVAL_MS = 600;
@@ -21,14 +25,35 @@ class IdentityWidget {
   private readonly extractor     = new AccountExtractor();
   private readonly topbar        = new Topbar();
   private readonly commentAvatar = new CommentAvatar();
+  private readonly guard         = new AccountGuard();
+  private readonly guardOverlay  = new GuardOverlay();
 
   private stylesInjected   = false;
   private navDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   private retryTimer:       ReturnType<typeof setTimeout> | null = null;
   private retryCount        = 0;
 
-  init(): void {
+  // Main guard MutationObserver — debounced, handles re-checking on DOM changes.
+  private guardMutObs: MutationObserver | null = null;
+  private guardRafPending = false;
+
+  async init(): Promise<void> {
     this.injectStyles();
+
+    // Load account list from storage (async, once per page lifetime).
+    await this.guard.init();
+
+    // When storage changes (popup adds/removes an account), re-evaluate immediately.
+    this.guard.setOnStateChange(state => {
+      if (state.isBlocked) {
+        this.commentAvatar.suppress();
+        this.guardOverlay.apply(state);
+      } else {
+        this.guardOverlay.clear();
+        this.commentAvatar.unsuppress();
+      }
+    });
+
     this.listenForNavigation();
     this.initialise();
   }
@@ -47,8 +72,14 @@ class IdentityWidget {
   // ─── Initialisation ────────────────────────────────────────────────────
 
   private initialise(): void {
+    // ── Guard: runs on ALL github.com pages (intentional) ──
+    AccountGuard.clickLoadMore();
+    this.guard.recheck();
+    this.startGuardObserver();
+
+    // ── Identity: only on issue / PR / discussion pages ──
     if (!this.isTargetPage()) {
-      this.teardown();
+      this.teardownIdentity();
       return;
     }
 
@@ -69,23 +100,48 @@ class IdentityWidget {
     this.retryTimer = setTimeout(() => this.initialise(), RETRY_INTERVAL_MS);
   }
 
-  private teardown(): void {
+  private teardownIdentity(): void {
     this.topbar.unmount();
     this.commentAvatar.unmount();
   }
 
-  // ─── Navigation handling ───────────────────────────────────────────────
+  private teardown(): void {
+    this.teardownIdentity();
+    this.guardOverlay.clear();
+    this.guardMutObs?.disconnect();
+    this.guardMutObs = null;
+  }
+
+  // ─── Guard observer ────────────────────────────────────────────────────
   //
-  // GitHub uses several navigation systems; listen to all known events plus
-  // a MutationObserver URL-change fallback.
-  // ─────────────────────────────────────────────────────────────────────────
+  // Watches for new comments being added (including after "Load more" clicks)
+  // and re-evaluates the guard state.  Debounced via rAF.
+
+  private startGuardObserver(): void {
+    if (this.guardMutObs) return;
+
+    this.guardMutObs = new MutationObserver(() => {
+      if (this.guardRafPending) return;
+      this.guardRafPending = true;
+      requestAnimationFrame(() => {
+        AccountGuard.clickLoadMore();
+        this.guard.recheck();
+        this.guardRafPending = false;
+      });
+    });
+
+    this.guardMutObs.observe(document.body, { childList: true, subtree: true });
+  }
+
+  // ─── SPA navigation ────────────────────────────────────────────────────
 
   private listenForNavigation(): void {
     const onNav = () => this.debouncedReinit();
-    document.addEventListener('pjax:end', onNav);
-    document.addEventListener('turbo:load', onNav);
+
+    document.addEventListener('pjax:end',     onNav);
+    document.addEventListener('turbo:load',   onNav);
     document.addEventListener('soft-nav:end', onNav);
-    window.addEventListener('popstate', onNav);
+    window.addEventListener('popstate',       onNav);
 
     let lastUrl = location.href;
     new MutationObserver(() => {
@@ -100,6 +156,7 @@ class IdentityWidget {
     if (this.navDebounceTimer) clearTimeout(this.navDebounceTimer);
     if (this.retryTimer) { clearTimeout(this.retryTimer); this.retryTimer = null; }
     this.retryCount = 0;
+
     this.navDebounceTimer = setTimeout(() => {
       this.teardown();
       this.initialise();
@@ -110,13 +167,18 @@ class IdentityWidget {
 
   private isTargetPage(): boolean {
     const p = location.pathname;
-    return /\/issues\/\d+/.test(p) || /\/pull\/\d+/.test(p) || /\/discussions\/\d+/.test(p);
+    return (
+      /\/issues\/\d+/.test(p) ||
+      /\/pull\/\d+/.test(p)   ||
+      /\/discussions\/\d+/.test(p)
+    );
   }
 }
 
 // ─── Boot ──────────────────────────────────────────────────────────────────
 
 const widget = new IdentityWidget();
+
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => widget.init());
 } else {

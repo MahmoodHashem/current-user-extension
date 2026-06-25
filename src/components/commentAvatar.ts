@@ -33,9 +33,11 @@ export class CommentAvatar {
   private account: GitHubAccount | null = null;
   private observer: MutationObserver | null = null;
   private rafPending = false;
+  private suppressed = false;
 
   mount(account: GitHubAccount): void {
     this.account = account;
+    this.suppressed = false;
     this.injectAll();
     this.startObserver();
   }
@@ -43,6 +45,23 @@ export class CommentAvatar {
   unmount(): void {
     this.observer?.disconnect();
     this.observer = null;
+    this.removeBanners();
+  }
+
+  /** Called by GuardOverlay when the wrong account is detected.  Removes all
+   *  banners so the inert composer zone doesn't contain redundant identity info. */
+  suppress(): void {
+    this.suppressed = true;
+    this.removeBanners();
+  }
+
+  /** Called by GuardOverlay when the guard clears.  Re-injects banners normally. */
+  unsuppress(): void {
+    this.suppressed = false;
+    this.injectAll();
+  }
+
+  private removeBanners(): void {
     document.querySelectorAll(`.${BANNER_CLASS}`).forEach(el => el.remove());
     // Clear markers so a fresh mount can re-inject
     document.querySelectorAll(`[${BANNER_ATTR}]`).forEach(el => el.removeAttribute(BANNER_ATTR));
@@ -51,7 +70,7 @@ export class CommentAvatar {
   // ─── Injection ──────────────────────────────────────────────────────────
 
   private injectAll(): void {
-    if (!this.account) return;
+    if (!this.account || this.suppressed) return;
 
     // `nav[aria-label="View mode"]` is inside every MarkdownEditor instance.
     // There may be more than one (page-bottom form + inline reply forms).

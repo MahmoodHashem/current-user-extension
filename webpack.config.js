@@ -2,9 +2,12 @@ const path = require('path');
 
 /** @type {import('webpack').Configuration} */
 module.exports = {
-  entry: './src/content.ts',
+  entry: {
+    content: './src/content.ts',
+    popup:   './src/popup/popup.ts',
+  },
   output: {
-    filename: 'content.js',
+    filename: '[name].js',
     path: path.resolve(__dirname, 'dist'),
     clean: true,
   },
@@ -20,6 +23,6 @@ module.exports = {
       },
     ],
   },
-  // No eval() — required for MV3 content security policy
+  // No eval() — required for MV3 CSP
   devtool: false,
 };

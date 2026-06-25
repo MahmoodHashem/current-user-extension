@@ -265,4 +265,87 @@ export const STYLES = `
   .gh-id-comment-banner     { animation: none; }
   .gh-id-cb-avatar          { transition: none; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ACCOUNT GUARD — warning banner + blocked-composer overlay
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.gh-guard-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  background: #fff0f0;
+  border: 1.5px solid #cf222e;
+  border-radius: 8px;
+  animation: gh-id-fade-in 0.15s ease;
+}
+
+.gh-guard-icon {
+  font-size: 18px;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.gh-guard-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.gh-guard-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #82071e;
+}
+
+.gh-guard-detail {
+  font-size: 12px;
+  color: #82071e;
+  line-height: 1.5;
+}
+
+.gh-guard-code {
+  font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace;
+  font-size: 11px;
+  background: rgba(207, 34, 46, 0.08);
+  border: 1px solid rgba(207, 34, 46, 0.2);
+  border-radius: 4px;
+  padding: 1px 4px;
+}
+
+/* Visually dim the inert (blocked) composer so the user sees it's locked. */
+[data-gh-guard-blocked] {
+  opacity: 0.45;
+  pointer-events: none;
+  cursor: not-allowed;
+  filter: grayscale(0.2);
+}
+
+[data-color-mode="dark"] .gh-guard-warning {
+  background: rgba(207, 34, 46, 0.12);
+  border-color: #f85149;
+}
+
+[data-color-mode="dark"] .gh-guard-title,
+[data-color-mode="dark"] .gh-guard-detail {
+  color: #ffa198;
+}
+
+[data-color-mode="dark"] .gh-guard-code {
+  background: rgba(248, 81, 73, 0.15);
+  border-color: rgba(248, 81, 73, 0.3);
+}
+
+@media (forced-colors: active) {
+  .gh-guard-warning { border: 2px solid Mark; }
+  [data-gh-guard-blocked] { opacity: 0.5; filter: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gh-guard-warning { animation: none; }
+}
 `;

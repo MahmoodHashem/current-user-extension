@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GitHub Account Guard</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      font-size: 13px;
+      color: #1f2328;
+      background: #ffffff;
+      width: 320px;
+      padding: 16px;
+    }
+
+    h1 {
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .subtitle {
+      font-size: 11px;
+      color: #656d76;
+      line-height: 1.5;
+      margin-bottom: 14px;
+    }
+
+    #account-list {
+      list-style: none;
+      border: 1px solid #d0d7de;
+      border-radius: 8px;
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+
+    .account-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      border-bottom: 1px solid #d0d7de;
+    }
+
+    .account-row:last-child { border-bottom: none; }
+
+    .account-name {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+      color: #1f2328;
+    }
+
+    .remove-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #cf222e;
+      font-size: 13px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      line-height: 1;
+    }
+    .remove-btn:hover { background: #fff0f0; }
+
+    .empty {
+      padding: 10px 12px;
+      color: #656d76;
+      font-style: italic;
+    }
+
+    .add-row {
+      display: flex;
+      gap: 6px;
+    }
+
+    #new-account {
+      flex: 1;
+      padding: 6px 10px;
+      border: 1px solid #d0d7de;
+      border-radius: 6px;
+      font-size: 12px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      outline: none;
+    }
+    #new-account:focus { border-color: #0969da; box-shadow: 0 0 0 3px rgba(9,105,218,0.15); }
+    #new-account::placeholder { color: #818b98; }
+
+    #add-btn {
+      padding: 6px 12px;
+      background: #1f883d;
+      color: #ffffff;
+      border: none;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    #add-btn:hover { background: #1a7f37; }
+
+    #status {
+      margin-top: 8px;
+      font-size: 11px;
+      min-height: 16px;
+    }
+  </style>
+</head>
+<body>
+  <h1>GitHub Account Guard</h1>
+  <p class="subtitle">
+    List your GitHub usernames below. If one of them has already commented on
+    an issue or PR, the others will be blocked from interacting.
+  </p>
+
+  <ul id="account-list"></ul>
+
+  <div class="add-row">
+    <input id="new-account" type="text" placeholder="github-username" autocomplete="off" spellcheck="false" />
+    <button id="add-btn">Add</button>
+  </div>
+  <p id="status"></p>
+
+  <script src="dist/popup.js"></script>
+</body>
+</html>
