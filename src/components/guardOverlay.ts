@@ -85,19 +85,16 @@ export class GuardOverlay {
       if (!document.body.contains(btn)) this.blockedSubmits.delete(btn);
     });
 
-    document.querySelectorAll<HTMLElement>('nav[aria-label="View mode"]').forEach(nav => {
-      const wrapper  = this.findCommentBoxWrapper(nav);
-      if (!wrapper) return;
-
-      const textarea = wrapper.querySelector<HTMLTextAreaElement>('textarea');
-      if (!textarea) return;
-
-      // ① Inline notice above Write/Preview tabs
-      if (!wrapper.querySelector(`.${NOTICE_CLASS}`)) {
-        wrapper.insertBefore(this.buildNotice(this.state!), wrapper.firstChild);
+    document.querySelectorAll<HTMLTextAreaElement>('textarea').forEach(textarea => {
+      // ① Notice — place at the top of the MarkdownEditor container if findable,
+      //    otherwise above the textarea itself.
+      const noticeRoot = this.findMarkdownEditorRoot(textarea) ?? textarea.parentElement;
+      if (noticeRoot && !noticeRoot.querySelector(`.${NOTICE_CLASS}`)) {
+        noticeRoot.insertBefore(this.buildNotice(this.state!), noticeRoot.firstChild);
       }
 
-      // ② Block the textarea itself
+      // ② Block the textarea — this is the critical step.
+      //    No <form> required: GitHub's React pages don't always wrap editors in <form>.
       if (!this.textareaBlockers.has(textarea)) {
         this.blockTextarea(textarea);
       }
@@ -109,22 +106,65 @@ export class GuardOverlay {
         taWrapper.appendChild(this.buildTextareaOverlay(this.state!));
       }
 
-      // ④ Block the submit / comment button.
-      //    On PR pages the button lives in a sibling div, not a child of
-      //    wrapper.parentElement, so we anchor to the nearest <form> first.
-      //    Only button[type="submit"] — broader selectors over-match toolbar
-      //    buttons and break the editor.
-      const form = wrapper.closest<HTMLFormElement>('form');
-      const submitBtn = (
-        form?.querySelector<HTMLElement>('button[type="submit"]') ??
-        wrapper.parentElement?.querySelector<HTMLElement>('button[type="submit"]')
-      );
+      // ④ Block the submit / comment button by walking UP the DOM from the
+      //    textarea.  At each ancestor level we look for button[type="submit"]
+      //    first (classic forms), then any <button> that is a sibling-or-cousin
+      //    of the textarea wrapper (React composite editors).
+      this.blockNearestSubmitBtn(textarea);
+    });
+  }
+
+  // Walk up from the textarea, checking each ancestor for a submit button.
+  // Tries button[type="submit"] first (classic forms), then any <button> that
+  // is NOT inside the MarkdownEditor toolbar (React composite editors use
+  // type="button" for the Comment action with no <form> wrapper).
+  private blockNearestSubmitBtn(textarea: HTMLElement): void {
+    let el: HTMLElement | null = textarea.parentElement;
+    for (let i = 0; i < 12; i++) {
+      if (!el || el.tagName === 'BODY') return;
+
+      // Prefer an explicit submit button
+      const submitBtn = el.querySelector<HTMLElement>('button[type="submit"]');
       if (submitBtn && !submitBtn.hasAttribute(BLOCKED_ATTR)) {
         submitBtn.setAttribute('inert', '');
         submitBtn.setAttribute(BLOCKED_ATTR, 'submit');
         this.blockedSubmits.add(submitBtn);
+        return;
       }
-    });
+
+      // On React pages with no <form>, look for a <button> sibling of the
+      // textarea's ancestor that is NOT inside a nav or toolbar (those are
+      // formatting / tab buttons, not submit actions).
+      const allBtns = [...el.querySelectorAll<HTMLElement>('button')].filter(btn => {
+        return (
+          !btn.closest('nav') &&
+          !btn.closest('[role="toolbar"]') &&
+          !btn.hasAttribute(BLOCKED_ATTR)
+        );
+      });
+      if (allBtns.length > 0) {
+        // The last non-toolbar button in this container is the primary action.
+        const primary = allBtns[allBtns.length - 1];
+        primary.setAttribute('inert', '');
+        primary.setAttribute(BLOCKED_ATTR, 'submit');
+        this.blockedSubmits.add(primary);
+        return;
+      }
+
+      el = el.parentElement;
+    }
+  }
+
+  // Walk up from the textarea to find the element that contains the
+  // Write/Preview nav tabs — used only for placing the notice banner.
+  private findMarkdownEditorRoot(textarea: HTMLElement): HTMLElement | null {
+    let el: HTMLElement | null = textarea.parentElement;
+    for (let i = 0; i < 8; i++) {
+      if (!el || el.tagName === 'FORM') return null;
+      if (el.querySelector('nav[aria-label="View mode"]')) return el;
+      el = el.parentElement;
+    }
+    return null;
   }
 
   private blockTextarea(textarea: HTMLTextAreaElement): void {
@@ -146,16 +186,6 @@ export class GuardOverlay {
     }
   }
 
-  // Walk up from the tab-nav to the first ancestor that contains a textarea.
-  private findCommentBoxWrapper(nav: HTMLElement): HTMLElement | null {
-    let el: HTMLElement | null = nav.parentElement;
-    for (let i = 0; i < 10; i++) {
-      if (!el) return null;
-      if (el.querySelector('textarea')) return el;
-      el = el.parentElement;
-    }
-    return null;
-  }
 
   // ─── Notice (small inline alert) ───────────────────────────────────────
 

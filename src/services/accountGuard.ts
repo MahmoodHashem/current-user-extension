@@ -96,7 +96,10 @@ export class AccountGuard {
   private loadAccounts(): Promise<void> {
     return new Promise(resolve => {
       chrome.storage.sync.get({ [STORAGE_KEY]: DEFAULT_ACCOUNTS }, result => {
-        this.myAccounts = result[STORAGE_KEY] as string[];
+      
+        if (chrome.runtime.lastError) { resolve(); return; }
+        const val = result[STORAGE_KEY];
+        this.myAccounts = (Array.isArray(val) && val.length > 0) ? val : [...DEFAULT_ACCOUNTS];
         resolve();
       });
     });
@@ -105,7 +108,9 @@ export class AccountGuard {
   private loadDisabledAccounts(): Promise<void> {
     return new Promise(resolve => {
       chrome.storage.sync.get({ [DISABLED_STORAGE_KEY]: [] }, result => {
-        this.disabledAccounts = new Set(result[DISABLED_STORAGE_KEY] as string[]);
+        if (chrome.runtime.lastError) { console.error('[Guard] loadDisabledAccounts error:', chrome.runtime.lastError); resolve(); return; }
+        const val = result[DISABLED_STORAGE_KEY];
+        this.disabledAccounts = new Set(Array.isArray(val) ? val : []);
         resolve();
       });
     });
@@ -172,12 +177,26 @@ export class AccountGuard {
       }
     });
 
+    // Widest net: GitHub sets alt="@username" on every user avatar image across
+    // ALL page variants (classic, React, new issue design, PRs, discussions).
+    // This catches comment authors even when no data-* attribute is present.
+    document.querySelectorAll<HTMLImageElement>('img[alt^="@"]').forEach(img => {
+      const login = img.alt.replace(/^@/, '').trim();
+      if (/^[a-zA-Z0-9][a-zA-Z0-9-]{0,37}$/.test(login) && !EXCLUDED.has(login)) {
+        authors.add(login.toLowerCase());
+      }
+    });
+
     return authors;
   }
 
   private findUsedAccount(authors: Set<string>): string | null {
+    const me = this.getCurrentUser()?.toLowerCase() ?? '';
     for (const account of this.myAccounts) {
-      if (authors.has(account.toLowerCase())) return account;
+      const key = account.toLowerCase();
+      // Skip the current user — they're always in authors (AppHeader shows their login).
+      // We want the FIRST *other* account from myAccounts that participated.
+      if (key !== me && authors.has(key)) return account;
     }
     return null;
   }
