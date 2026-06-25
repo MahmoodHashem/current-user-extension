@@ -19,7 +19,7 @@ export const STYLES = `
   /* Attached to body; position:fixed resolves against the viewport */
   position: fixed;
   bottom: 40px;
-  border-radius: 20px; 
+  border-radius: 50px; 
   left: 0;
   right: 0;
   width: 80%;
@@ -34,11 +34,11 @@ export const STYLES = `
   align-items: center;
   flex-wrap: nowrap;
   gap: 10px;
-  padding: 20px;
+  padding: 10px;
 
   background: var(--color-canvas-default, #ffffff);
   border-top: 1px solid var(--color-border-default, #d0d7de);
-  box-shadow: 0 -2px 8px rgba(31, 35, 40, 0.08);
+  box-shadow: 0 0 8px rgba(31, 35, 40, 0.6);
 
   overflow-x: auto;
   overflow-y: hidden;
