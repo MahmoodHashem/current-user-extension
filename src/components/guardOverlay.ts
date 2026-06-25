@@ -2,37 +2,33 @@ import { GuardState } from '../services/accountGuard';
 
 // ─── GuardOverlay ─────────────────────────────────────────────────────────────
 //
-// Enforces the guard visually and interactively when the wrong account is active.
+// Enforces the guard visually and interactively:
 //
-// What it does when blocked:
+//   1. NOTICE — a compact inline alert injected as the first child of the
+//      CommentBox wrapper (above the Write/Preview tabs).
 //
-//   1. WARNS — injects a prominent red banner before each comment composer.
+//   2. TEXTAREA OVERLAY — an absolutely-positioned frosted overlay injected
+//      inside the textarea's own wrapper, covering just the input area.
+//      The textarea gets `readonly` + capture-phase event blockers (keydown,
+//      paste, etc.) so input is blocked at both the CSS and JS layers.
 //
-//   2. BLOCKS COMPOSER — applies the `inert` HTML attribute to the entire
-//      MarkdownEditor container (one level above the CommentBox wrapper, so the
-//      footer with the "Comment" submit button is also blocked).
-//      `inert` is the correct API for this: it makes ALL descendants
-//      non-focusable, non-clickable, and hidden from the accessibility tree.
-//      React cannot undo it because React never sets or reads `inert`.
+//   3. SUBMIT BUTTON — `inert` applied directly to the button element so the
+//      Comment/Submit button is non-interactive.
 //
-//   3. BLOCKS REACTIONS — installs a capture-phase click/mousedown listener at
-//      the document level.  Capture fires before React's synthetic events, so
-//      we can reliably preventDefault() and stopImmediatePropagation() on any
-//      reaction interaction.  This works even when React re-renders the buttons.
+//   4. REACTIONS — document-level capture listener that prevents
+//      click/mousedown on any reaction element before React sees it.
 //
-//   4. RE-APPLIES on DOM changes — a single MutationObserver watches for new
-//      composers (e.g. inline reply forms) and re-applies all three layers.
-//
-// This class coordinates with CommentAvatar: when guard is active it calls
-// commentAvatar.suppress() so the "Commenting as" banner is not shown inside
-// the inert area.
+//   5. RE-APPLIES on DOM mutations (rAF-debounced) — catches lazily-rendered
+//      inline reply forms.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const BLOCKED_ATTR   = 'data-gh-guard-blocked';
-const WARNING_CLASS  = 'gh-guard-warning';
+const BLOCKED_ATTR     = 'data-gh-guard-blocked';
+const NOTICE_CLASS     = 'gh-guard-notice';
+const TA_OVERLAY_CLASS = 'gh-guard-ta-overlay';
+const EVENTS_TO_BLOCK  = ['keydown', 'keypress', 'keyup', 'paste', 'cut', 'drop', 'beforeinput'];
 
 export class GuardOverlay {
-  private active    = false;
+  private active = false;
   private state: GuardState | null = null;
 
   private captureClick:     ((e: Event) => void) | null = null;
@@ -40,19 +36,20 @@ export class GuardOverlay {
   private mutObs: MutationObserver | null = null;
   private rafPending = false;
 
+  // textarea → its unified event-blocker function (one per textarea)
+  private textareaBlockers = new Map<HTMLTextAreaElement, EventListener>();
+  // submit buttons blocked so we can clean them up
+  private blockedSubmits   = new Set<HTMLElement>();
+
   // ─── Public API ────────────────────────────────────────────────────────
 
   apply(state: GuardState): void {
     this.state  = state;
     this.active = state.isBlocked;
 
-    if (!state.isBlocked) {
-      this.clear();
-      return;
-    }
+    if (!state.isBlocked) { this.clear(); return; }
 
-    this.blockComposers();
-    this.injectWarnings();
+    this.blockEditors();
     this.installReactionBlocker();
     this.startObserver();
   }
@@ -62,107 +59,143 @@ export class GuardOverlay {
     this.mutObs?.disconnect();
     this.mutObs = null;
 
-    document.querySelectorAll(`[${BLOCKED_ATTR}]`).forEach(el => {
-      el.removeAttribute('inert');
-      el.removeAttribute(BLOCKED_ATTR);
+    document.querySelectorAll(`.${NOTICE_CLASS}`).forEach(el => el.remove());
+    document.querySelectorAll(`.${TA_OVERLAY_CLASS}`).forEach(el => el.remove());
+
+    this.textareaBlockers.forEach((blocker, textarea) => this.unblockTextarea(textarea, blocker));
+    this.textareaBlockers.clear();
+
+    this.blockedSubmits.forEach(btn => {
+      btn.removeAttribute('inert');
+      btn.removeAttribute(BLOCKED_ATTR);
     });
-    document.querySelectorAll(`.${WARNING_CLASS}`).forEach(el => el.remove());
+    this.blockedSubmits.clear();
+
     this.uninstallReactionBlocker();
   }
 
-  // ─── Composer blocking ─────────────────────────────────────────────────
+  // ─── Editor blocking ───────────────────────────────────────────────────
 
-  private blockComposers(): void {
+  private blockEditors(): void {
+    // Prune stale references (detached DOM nodes)
+    this.textareaBlockers.forEach((_, ta) => {
+      if (!document.body.contains(ta)) this.textareaBlockers.delete(ta);
+    });
+    this.blockedSubmits.forEach(btn => {
+      if (!document.body.contains(btn)) this.blockedSubmits.delete(btn);
+    });
+
     document.querySelectorAll<HTMLElement>('nav[aria-label="View mode"]').forEach(nav => {
-      // The MarkdownEditor container is the grandparent of the CommentBox wrapper.
-      // It contains both the editor (textarea) AND the footer (submit button).
-      const editorContainer = this.findEditorContainer(nav);
-      if (!editorContainer || editorContainer.hasAttribute(BLOCKED_ATTR)) return;
+      const wrapper  = this.findCommentBoxWrapper(nav);
+      if (!wrapper) return;
 
-      editorContainer.setAttribute(BLOCKED_ATTR, '1');
-      editorContainer.setAttribute('inert', '');
+      const textarea = wrapper.querySelector<HTMLTextAreaElement>('textarea');
+      if (!textarea) return;
+
+      // ① Inline notice above Write/Preview tabs
+      if (!wrapper.querySelector(`.${NOTICE_CLASS}`)) {
+        wrapper.insertBefore(this.buildNotice(this.state!), wrapper.firstChild);
+      }
+
+      // ② Block the textarea itself
+      if (!this.textareaBlockers.has(textarea)) {
+        this.blockTextarea(textarea);
+      }
+
+      // ③ Overlay covering just the textarea area
+      const taWrapper = textarea.parentElement;
+      if (taWrapper && !taWrapper.querySelector(`.${TA_OVERLAY_CLASS}`)) {
+        (taWrapper as HTMLElement).style.position = 'relative';
+        taWrapper.appendChild(this.buildTextareaOverlay(this.state!));
+      }
+
+      // ④ Block the submit button (it lives in the footer, one level up from the CommentBox)
+      const submitBtn = wrapper.parentElement?.querySelector<HTMLElement>('button[type="submit"]');
+      if (submitBtn && !submitBtn.hasAttribute(BLOCKED_ATTR)) {
+        submitBtn.setAttribute('inert', '');
+        submitBtn.setAttribute(BLOCKED_ATTR, 'submit');
+        this.blockedSubmits.add(submitBtn);
+      }
     });
   }
 
-  // Walk up from nav → find ancestor containing <textarea> (CommentBox wrapper)
-  // → go one more level up (MarkdownEditor container that also wraps the footer).
-  private findEditorContainer(nav: HTMLElement): HTMLElement | null {
+  private blockTextarea(textarea: HTMLTextAreaElement): void {
+    const blocker = (e: Event) => { e.preventDefault(); e.stopImmediatePropagation(); };
+    EVENTS_TO_BLOCK.forEach(t => textarea.addEventListener(t, blocker, { capture: true }));
+    this.textareaBlockers.set(textarea, blocker);
+    textarea.setAttribute(BLOCKED_ATTR, 'textarea');
+    textarea.setAttribute('readonly', '');
+  }
+
+  private unblockTextarea(textarea: HTMLTextAreaElement, blocker: EventListener): void {
+    EVENTS_TO_BLOCK.forEach(t => textarea.removeEventListener(t, blocker, { capture: true }));
+    textarea.removeAttribute(BLOCKED_ATTR);
+    textarea.removeAttribute('readonly');
+    // Remove the overlay from the textarea's parent
+    textarea.parentElement?.querySelector(`.${TA_OVERLAY_CLASS}`)?.remove();
+    if (textarea.parentElement?.style.position === 'relative') {
+      (textarea.parentElement as HTMLElement).style.position = '';
+    }
+  }
+
+  // Walk up from the tab-nav to the first ancestor that contains a textarea.
+  private findCommentBoxWrapper(nav: HTMLElement): HTMLElement | null {
     let el: HTMLElement | null = nav.parentElement;
     for (let i = 0; i < 10; i++) {
       if (!el) return null;
-      if (el.querySelector('textarea')) {
-        // This is the CommentBox wrapper; its parent is the MarkdownEditor container.
-        return el.parentElement;
-      }
+      if (el.querySelector('textarea')) return el;
       el = el.parentElement;
     }
     return null;
   }
 
-  // ─── Warning banners ───────────────────────────────────────────────────
+  // ─── Notice (small inline alert) ───────────────────────────────────────
 
-  private injectWarnings(): void {
-    if (!this.state) return;
-
-    document.querySelectorAll<HTMLElement>('nav[aria-label="View mode"]').forEach(nav => {
-      const editorContainer = this.findEditorContainer(nav);
-      if (!editorContainer) return;
-
-      const parent = editorContainer.parentElement;
-      if (!parent) return;
-
-      // One banner per parent container (avoid duplicates on re-apply).
-      if (parent.querySelector(`.${WARNING_CLASS}`)) return;
-
-      const banner = this.buildBanner(this.state!);
-      parent.insertBefore(banner, editorContainer);
-    });
+  private buildNotice(state: GuardState): HTMLElement {
+    const el = document.createElement('div');
+    el.className = NOTICE_CLASS;
+    el.setAttribute('role', 'alert');
+    el.innerHTML = `
+      <span class="gh-guard-notice-icon" aria-hidden="true">⊘</span>
+      <span class="gh-guard-notice-text">
+        <code class="gh-guard-code-sm">@${this.esc(state.usedAccount ?? '')}</code>
+        already participated here — switch accounts to interact.
+      </span>`;
+    return el;
   }
 
-  private buildBanner(state: GuardState): HTMLElement {
+  // ─── Textarea overlay ──────────────────────────────────────────────────
+
+  private buildTextareaOverlay(state: GuardState): HTMLElement {
     const el = document.createElement('div');
-    el.className = WARNING_CLASS;
-    el.setAttribute('role', 'alert');
-    el.setAttribute('aria-live', 'assertive');
-
+    el.className = TA_OVERLAY_CLASS;
+    el.setAttribute('aria-hidden', 'true');
     el.innerHTML = `
-      <div class="gh-guard-icon" aria-hidden="true">⚠️</div>
-      <div class="gh-guard-body">
-        <strong class="gh-guard-title">Wrong account — interaction blocked</strong>
-        <span class="gh-guard-detail">
-          <code class="gh-guard-code">@${this.esc(state.usedAccount ?? '')}</code>
-          already participated here.
-          You are signed in as
-          <code class="gh-guard-code">@${this.esc(state.currentUser)}</code>.
-          Switch to the correct account to interact.
+      <div class="gh-guard-ta-inner">
+        <span class="gh-guard-ta-icon">⊘</span>
+        <strong class="gh-guard-ta-title">Commenting blocked</strong>
+        <span class="gh-guard-ta-detail">
+          <code class="gh-guard-code-sm">@${this.esc(state.usedAccount ?? '')}</code>
+          already participated · signed in as
+          <code class="gh-guard-code-sm">@${this.esc(state.currentUser)}</code>
         </span>
-      </div>
-    `;
-
+      </div>`;
     return el;
   }
 
   // ─── Reaction blocker ──────────────────────────────────────────────────
-  //
-  // Capture phase fires before React's synthetic event system, so
-  // preventDefault + stopImmediatePropagation reliably prevents reactions
-  // even after React re-renders the buttons.
 
   private installReactionBlocker(): void {
-    if (this.captureClick) return; // already installed
+    if (this.captureClick) return;
 
     const handler = (e: Event): void => {
       if (!this.active) return;
-      const target = e.target as Element | null;
-      if (!target) return;
-
-      const reactionEl = target.closest(
-        '[aria-label*="reaction" i], [aria-label*="React" i], ' +
-        '[data-testid="reaction-button"], button[name="reaction"], ' +
-        '.js-reaction-popover-container, [class*="reaction"]',
-      );
-
-      if (reactionEl) {
+      const t = e.target as Element | null;
+      if (t?.closest(
+        '[aria-label*="reaction" i],[aria-label*="React" i],' +
+        '[data-testid="reaction-button"],button[name="reaction"],' +
+        '.js-reaction-popover-container,[class*="reaction"]',
+      )) {
         e.preventDefault();
         e.stopImmediatePropagation();
       }
@@ -170,35 +203,26 @@ export class GuardOverlay {
 
     this.captureClick     = handler;
     this.captureMousedown = handler;
-
-    document.addEventListener('click',     this.captureClick,     { capture: true });
-    document.addEventListener('mousedown', this.captureMousedown, { capture: true });
+    document.addEventListener('click',     handler, { capture: true });
+    document.addEventListener('mousedown', handler, { capture: true });
   }
 
   private uninstallReactionBlocker(): void {
-    if (this.captureClick) {
-      document.removeEventListener('click',     this.captureClick,     { capture: true });
-      document.removeEventListener('mousedown', this.captureMousedown!, { capture: true });
-      this.captureClick     = null;
-      this.captureMousedown = null;
-    }
+    if (!this.captureClick) return;
+    document.removeEventListener('click',     this.captureClick,     { capture: true });
+    document.removeEventListener('mousedown', this.captureMousedown!, { capture: true });
+    this.captureClick = this.captureMousedown = null;
   }
 
   // ─── Observer ──────────────────────────────────────────────────────────
 
   private startObserver(): void {
     if (this.mutObs) return;
-
     this.mutObs = new MutationObserver(() => {
       if (this.rafPending || !this.active) return;
       this.rafPending = true;
-      requestAnimationFrame(() => {
-        this.blockComposers();
-        this.injectWarnings();
-        this.rafPending = false;
-      });
+      requestAnimationFrame(() => { this.blockEditors(); this.rafPending = false; });
     });
-
     this.mutObs.observe(document.body, { childList: true, subtree: true });
   }
 

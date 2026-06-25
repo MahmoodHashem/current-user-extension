@@ -3,11 +3,14 @@ import { AccountGuard, GuardState } from '../services/accountGuard';
 
 // ─── Topbar ───────────────────────────────────────────────────────────────────
 //
-// Fixed bottom identity strip.  When a comment composer is visible on screen,
-// the bar slides down out of view (because CommentAvatar already shows identity
-// there).  A shield button on the right opens a per-account guard settings
-// popover: each account in the list can be individually enabled/disabled so two
-// known accounts can interact on the same issue when needed.
+// Two floating circles, bottom-left corner of the viewport:
+//
+//   ● Large circle  — avatar image; hover reveals a tooltip with name + badge.
+//                     Click opens the GitHub profile.
+//   ● Small circle  — shield icon for Account Guard; click opens the per-account
+//                     toggle popover.
+//
+// Both circles slide-fade out when a comment composer enters the viewport.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const TOPBAR_ID = 'gh-account-identity-bar';
@@ -15,20 +18,19 @@ const HIDDEN_CLASS     = 'gh-id-bar-hidden';
 const COMPOSER_SEL     = 'nav[aria-label="View mode"]';
 const INTERSECTION_THRESHOLD = 0.15;
 
-// SVG shield icon (GitHub Primer octicon "shield")
-const SHIELD_SVG = `<svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true">
+const SHIELD_SVG = `<svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor" aria-hidden="true">
   <path d="M7.467.133a1.748 1.748 0 0 1 1.066 0l5.25 1.68A1.75 1.75 0 0 1 15 3.48V7c0 1.566-.32 3.182-1.303 4.682-.983 1.498-2.585 2.813-5.032 3.855a1.697 1.697 0 0 1-1.33 0c-2.447-1.042-4.049-2.357-5.032-3.855C1.32 10.182 1 8.566 1 7V3.48a1.75 1.75 0 0 1 1.217-1.667Z"/>
 </svg>`;
 
 export class Topbar {
-  private el:    HTMLElement | null = null;
-  private account: GitHubAccount | null = null;
-  private guard:   AccountGuard | null = null;
+  private el:         HTMLElement | null = null;
+  private account:    GitHubAccount | null = null;
+  private guard:      AccountGuard | null = null;
   private guardState: GuardState | null = null;
-  private popoverEl: HTMLElement | null = null;
+  private popoverEl:  HTMLElement | null = null;
 
-  private intersectionObs: IntersectionObserver | null = null;
-  private mutationObs:     MutationObserver | null     = null;
+  private intersectionObs:  IntersectionObserver | null = null;
+  private mutationObs:      MutationObserver | null     = null;
   private observedComposers = new WeakSet<Element>();
   private visibleComposers  = new Set<Element>();
   private mutRafPending     = false;
@@ -42,7 +44,8 @@ export class Topbar {
     this.render();
     this.el!.style.display = 'flex';
     this.el!.classList.remove(HIDDEN_CLASS);
-    this.wireGuardButton();
+    this.wireAvatarCircle();
+    this.wireGuardCircle();
     this.trackComposers();
   }
 
@@ -53,14 +56,14 @@ export class Topbar {
     this.intersectionObs = null;
     this.mutationObs     = null;
     this.visibleComposers.clear();
+    document.removeEventListener('click', this.onDocClick);
     this.el?.remove();
     this.el = null;
   }
 
-  /** Called by content.ts whenever guard state changes — updates indicator + open popover. */
   updateGuardState(state: GuardState): void {
     this.guardState = state;
-    this.renderGuardIndicator();
+    this.renderGuardDot();
     this.syncPopoverToggles(state);
   }
 
@@ -79,78 +82,76 @@ export class Topbar {
   private render(): void {
     if (!this.el || !this.account) return;
     const badge = BADGE_PRESETS[this.account.accountType];
-    this.el.innerHTML = this.buildBarHTML(this.account, badge);
+    this.el.innerHTML = this.buildHTML(this.account, badge);
   }
 
-  // ─── Guard button ───────────────────────────────────────────────────────
+  // ─── Avatar circle ──────────────────────────────────────────────────────
 
-  private wireGuardButton(): void {
-    const btn = this.el?.querySelector<HTMLButtonElement>('.gh-id-guard-btn');
+  private wireAvatarCircle(): void {
+    const circle = this.el?.querySelector<HTMLElement>('.gh-id-avatar-circle');
+    if (!circle || !this.account) return;
+
+    const url = this.account.profileUrl;
+    circle.addEventListener('click', () => window.open(url, '_blank', 'noopener,noreferrer'));
+    circle.addEventListener('keydown', (e: KeyboardEvent) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        window.open(url, '_blank', 'noopener,noreferrer');
+      }
+    });
+  }
+
+  // ─── Guard circle ───────────────────────────────────────────────────────
+
+  private wireGuardCircle(): void {
+    const btn = this.el?.querySelector<HTMLButtonElement>('.gh-id-guard-circle');
     if (!btn) return;
-
     btn.addEventListener('click', e => {
       e.stopPropagation();
       this.popoverEl ? this.closePopover() : this.openPopover();
     });
-
-    // Close popover on outside click.
-    document.addEventListener('click', this.onDocClick, { capture: false, passive: true });
+    document.addEventListener('click', this.onDocClick);
   }
 
   private onDocClick = (e: MouseEvent): void => {
     if (!this.popoverEl) return;
     if (
       !this.popoverEl.contains(e.target as Node) &&
-      !(e.target as Element)?.closest?.('.gh-id-guard-btn')
+      !(e.target as Element)?.closest?.('.gh-id-guard-circle')
     ) {
       this.closePopover();
     }
   };
 
-  /** Re-colours the shield dot to reflect active/partial/off guard state. */
-  private renderGuardIndicator(): void {
+  private renderGuardDot(): void {
     const dot = this.el?.querySelector<HTMLElement>('.gh-id-guard-dot');
     if (!dot || !this.guardState) return;
 
     const { myAccounts, disabledAccounts, currentUser } = this.guardState;
     const peers = myAccounts.filter(a => a.toLowerCase() !== currentUser.toLowerCase());
 
-    if (peers.length === 0) {
-      dot.style.display = 'none';
-      return;
-    }
+    if (peers.length === 0) { dot.style.display = 'none'; return; }
 
-    const allDisabled = peers.every(a =>
-      disabledAccounts.some(d => d.toLowerCase() === a.toLowerCase()),
-    );
-    const someDisabled = !allDisabled && disabledAccounts.length > 0;
+    const allPaused  = peers.every(a => disabledAccounts.some(d => d.toLowerCase() === a.toLowerCase()));
+    const somePaused = !allPaused && disabledAccounts.length > 0;
 
-    dot.style.display  = 'block';
-    // green = fully guarded, amber = partial, grey = all paused
-    dot.style.background = allDisabled ? '#818b98' : someDisabled ? '#bf8700' : '#1a7f37';
-    dot.setAttribute(
-      'title',
-      allDisabled  ? 'Guard paused for all accounts'  :
-      someDisabled ? 'Guard partially active' :
-                     'Guard active',
-    );
+    dot.style.display    = 'block';
+    dot.style.background = allPaused ? '#818b98' : somePaused ? '#bf8700' : '#1a7f37';
   }
 
   // ─── Popover ────────────────────────────────────────────────────────────
 
   private openPopover(): void {
-    if (this.popoverEl || !this.el || !this.guardState) return;
+    if (this.popoverEl || !this.guardState) return;
 
     const popover = this.buildPopover(this.guardState);
     this.popoverEl = popover;
     document.body.appendChild(popover);
     this.positionPopover();
 
-    // Wire toggle inputs
     popover.querySelectorAll<HTMLInputElement>('input[data-guard-account]').forEach(inp => {
       inp.addEventListener('change', () => {
-        const username = inp.getAttribute('data-guard-account') ?? '';
-        this.guard?.toggleAccount(username);
+        this.guard?.toggleAccount(inp.getAttribute('data-guard-account') ?? '');
       });
     });
 
@@ -165,27 +166,27 @@ export class Topbar {
   private positionPopover(): void {
     if (!this.popoverEl || !this.el) return;
 
-    const barRect = this.el.getBoundingClientRect();
-    const btn = this.el.querySelector<HTMLElement>('.gh-id-guard-btn');
-    const btnRect = btn?.getBoundingClientRect() ?? barRect;
+    const guardCircle = this.el.querySelector<HTMLElement>('.gh-id-guard-circle');
+    const rect = (guardCircle ?? this.el).getBoundingClientRect();
+    const W = 264;
+    let left = rect.left + rect.width / 2 - W / 2;
+    left = Math.max(8, Math.min(left, window.innerWidth - W - 8));
 
-    const popoverW = 270;
-    let left = btnRect.left + btnRect.width / 2 - popoverW / 2;
-    left = Math.max(8, Math.min(left, window.innerWidth - popoverW - 8));
-
-    this.popoverEl.style.bottom = `${window.innerHeight - barRect.top + 10}px`;
+    this.popoverEl.style.bottom = `${window.innerHeight - rect.top + 12}px`;
     this.popoverEl.style.left   = `${left}px`;
-    this.popoverEl.style.width  = `${popoverW}px`;
+    this.popoverEl.style.width  = `${W}px`;
   }
 
-  /** After a toggle fires, update the checkbox states without rebuilding the popover. */
   private syncPopoverToggles(state: GuardState): void {
     if (!this.popoverEl) return;
     const disabled = new Set(state.disabledAccounts.map(a => a.toLowerCase()));
     this.popoverEl.querySelectorAll<HTMLInputElement>('input[data-guard-account]').forEach(inp => {
-      const account = inp.getAttribute('data-guard-account') ?? '';
-      inp.checked = !disabled.has(account.toLowerCase());
+      const key     = (inp.getAttribute('data-guard-account') ?? '').toLowerCase();
+      inp.checked   = !disabled.has(key);
+      const statusEl = inp.closest('.gh-guard-pop-row')?.querySelector('.gh-guard-pop-status');
+      if (statusEl) statusEl.textContent = inp.checked ? 'Active' : 'Paused';
     });
+    this.renderGuardDot();
   }
 
   private buildPopover(state: GuardState): HTMLElement {
@@ -196,39 +197,24 @@ export class Topbar {
 
     const { myAccounts, disabledAccounts, currentUser } = state;
     const disabled = new Set(disabledAccounts.map(a => a.toLowerCase()));
-
-    // Accounts to show: all except the currently logged-in user.
-    const peers = myAccounts.filter(
-      a => a.toLowerCase() !== currentUser.toLowerCase(),
-    );
+    const peers    = myAccounts.filter(a => a.toLowerCase() !== currentUser.toLowerCase());
 
     const rows = peers.length === 0
       ? `<p class="gh-guard-pop-empty">No other accounts in your list.</p>`
-      : peers.map(username => {
-          const key     = username.toLowerCase();
-          const checked = !disabled.has(key) ? 'checked' : '';
+      : peers.map(u => {
+          const active = !disabled.has(u.toLowerCase());
           return `
-            <label class="gh-guard-pop-row" aria-label="Toggle guard for @${this.esc(username)}">
-              <img
-                class="gh-guard-pop-avatar"
-                src="https://github.com/${this.esc(username)}.png?size=48"
-                width="24" height="24"
-                alt="@${this.esc(username)}'s avatar"
-                loading="lazy"
-              />
-              <span class="gh-guard-pop-name">@${this.esc(username)}</span>
-              <span class="gh-guard-pop-status">${!disabled.has(key) ? 'Active' : 'Paused'}</span>
+            <label class="gh-guard-pop-row">
+              <img class="gh-guard-pop-avatar"
+                   src="https://github.com/${this.esc(u)}.png?size=48"
+                   width="22" height="22" alt="" loading="lazy" />
+              <span class="gh-guard-pop-name">@${this.esc(u)}</span>
+              <span class="gh-guard-pop-status">${active ? 'Active' : 'Paused'}</span>
               <span class="gh-guard-switch" aria-hidden="true">
-                <input
-                  type="checkbox"
-                  data-guard-account="${this.esc(username)}"
-                  ${checked}
-                  tabindex="0"
-                />
+                <input type="checkbox" data-guard-account="${this.esc(u)}" ${active ? 'checked' : ''} />
                 <span class="gh-guard-track"><span class="gh-guard-thumb"></span></span>
               </span>
-            </label>
-          `;
+            </label>`;
         }).join('');
 
     el.innerHTML = `
@@ -236,17 +222,10 @@ export class Topbar {
         ${SHIELD_SVG}
         <span class="gh-guard-pop-title">Account Guard</span>
       </div>
-      <p class="gh-guard-pop-desc">
-        Block interactions when a selected account has already participated here.
-      </p>
+      <p class="gh-guard-pop-desc">Block interactions if a selected account has already participated here.</p>
       <div class="gh-guard-pop-list">${rows}</div>
-      ${currentUser
-        ? `<p class="gh-guard-pop-current">
-             Signed in as <strong>@${this.esc(currentUser)}</strong>
-           </p>`
-        : ''}
+      ${currentUser ? `<p class="gh-guard-pop-current">Signed in as <strong>@${this.esc(currentUser)}</strong></p>` : ''}
     `;
-
     return el;
   }
 
@@ -255,13 +234,11 @@ export class Topbar {
   private trackComposers(): void {
     this.intersectionObs = new IntersectionObserver(entries => {
       for (const e of entries) {
-        if (e.isIntersecting) {
-          this.visibleComposers.add(e.target);
-        } else {
-          this.visibleComposers.delete(e.target);
-        }
+        e.isIntersecting
+          ? this.visibleComposers.add(e.target)
+          : this.visibleComposers.delete(e.target);
       }
-      this.visibleComposers.size > 0 ? this.hideBar() : this.showBar();
+      this.visibleComposers.size > 0 ? this.hideWidget() : this.showWidget();
     }, { threshold: INTERSECTION_THRESHOLD });
 
     this.observeExistingComposers();
@@ -269,10 +246,7 @@ export class Topbar {
     this.mutationObs = new MutationObserver(() => {
       if (this.mutRafPending) return;
       this.mutRafPending = true;
-      requestAnimationFrame(() => {
-        this.observeExistingComposers();
-        this.mutRafPending = false;
-      });
+      requestAnimationFrame(() => { this.observeExistingComposers(); this.mutRafPending = false; });
     });
     this.mutationObs.observe(document.body, { childList: true, subtree: true });
   }
@@ -286,68 +260,54 @@ export class Topbar {
     });
   }
 
-  private showBar(): void {
+  private showWidget(): void {
     if (!this.el) return;
     this.el.style.display = 'flex';
     void this.el.offsetHeight;
     this.el.classList.remove(HIDDEN_CLASS);
   }
 
-  private hideBar(): void {
-    if (!this.el) return;
-    this.el.classList.add(HIDDEN_CLASS);
+  private hideWidget(): void {
+    this.el?.classList.add(HIDDEN_CLASS);
     this.closePopover();
   }
 
   // ─── HTML ────────────────────────────────────────────────────────────────
 
-  private buildBarHTML(account: GitHubAccount, badge: BadgeConfig): string {
-    const emailPart = account.email
-      ? `<span class="gh-id-bar-sep" aria-hidden="true">·</span>
-         <a class="gh-id-bar-email"
-            href="mailto:${this.esc(account.email)}"
-            title="${this.esc(account.email)}"
-            aria-label="Email: ${this.esc(account.email)}"
-         >${this.esc(account.email)}</a>`
+  private buildHTML(account: GitHubAccount, badge: BadgeConfig): string {
+    const emailLine = account.email
+      ? `<a class="gh-id-tt-email" href="mailto:${this.esc(account.email)}">${this.esc(account.email)}</a>`
       : '';
 
     return `
-      <img
-        class="gh-id-bar-avatar"
-        src="${this.esc(account.avatarUrl)}?size=48"
-        alt="${this.esc(account.username)}'s avatar"
-        width="26" height="26" loading="lazy"
-      />
-      <div class="gh-id-bar-badge"
-           style="color:${badge.fgColor};background:${badge.bgColor};border-color:${badge.borderColor}"
-           aria-label="${this.esc(badge.label)}">
-        <span class="gh-id-dot" style="background:${badge.dotColor}" aria-hidden="true"></span>
-        <span>${this.esc(badge.label)}</span>
+      <div class="gh-id-avatar-circle" tabindex="0" role="link"
+           aria-label="@${this.esc(account.username)} — view GitHub profile">
+        <img class="gh-id-avatar-img"
+             src="${this.esc(account.avatarUrl)}?size=96"
+             alt="${this.esc(account.username)}'s avatar"
+             width="48" height="48" loading="lazy" />
+        <div class="gh-id-avatar-tooltip" role="tooltip">
+          <img class="gh-id-tt-avatar"
+               src="${this.esc(account.avatarUrl)}?size=80"
+               alt="" width="36" height="36" loading="lazy" />
+          <div class="gh-id-tt-info">
+            <span class="gh-id-tt-name">${this.esc(account.displayName)}</span>
+            <span class="gh-id-tt-handle">@${this.esc(account.username)}</span>
+            ${emailLine}
+            <div class="gh-id-tt-badge"
+                 style="color:${badge.fgColor};background:${badge.bgColor};border-color:${badge.borderColor}">
+              <span class="gh-id-dot" style="background:${badge.dotColor}" aria-hidden="true"></span>
+              ${this.esc(badge.label)}
+            </div>
+          </div>
+        </div>
       </div>
-      <a class="gh-id-bar-name"
-         href="${this.esc(account.profileUrl)}"
-         target="_blank" rel="noopener noreferrer"
-         aria-label="View ${this.esc(account.username)}'s GitHub profile"
-      >${this.esc(account.displayName)}</a>
-      <span class="gh-id-bar-handle"
-            aria-label="Username: @${this.esc(account.username)}"
-      >@${this.esc(account.username)}</span>
-      ${emailPart}
-      <button
-        class="gh-id-guard-btn"
-        type="button"
-        title="Account Guard settings"
-        aria-label="Account Guard settings"
-        aria-haspopup="dialog"
-      >
+
+      <button class="gh-id-guard-circle" type="button"
+              aria-label="Account Guard settings" aria-haspopup="dialog" title="Account Guard">
         ${SHIELD_SVG}
         <span class="gh-id-guard-dot" aria-hidden="true" style="display:none"></span>
       </button>
-      <a class="gh-id-bar-profile-link"
-         href="${this.esc(account.profileUrl)}"
-         target="_blank" rel="noopener noreferrer"
-         aria-label="Open GitHub profile in new tab"
-      >↗</a>
     `;
   }
 
