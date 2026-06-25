@@ -27,11 +27,6 @@ export const STYLES = `
   transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
-#gh-account-identity-bar.gh-id-bar-hidden {
-  opacity: 0;
-  transform: translateY(10px);
-  pointer-events: none;
-}
 
 /* ── Large avatar circle ─────────────────────────────────────────────────── */
 
@@ -73,7 +68,7 @@ export const STYLES = `
   background: var(--color-canvas-default, #ffffff);
   border: 1px solid var(--color-border-default, #d0d7de);
   border-radius: 12px;
-  padding: 14px;
+  padding: 14px !important;
   box-shadow: 0 8px 24px rgba(31, 35, 40, 0.15);
   display: flex;
   gap: 10px;
@@ -490,8 +485,7 @@ input:checked ~ .gh-guard-track .gh-guard-thumb    { transform: translateX(15px)
    ══════════════════════════════════════════════════════════════════════════ */
 
 @media (prefers-reduced-motion: reduce) {
-  #gh-account-identity-bar { transition: none; }
-  .gh-id-avatar-circle     { transition: none; }
+.gh-id-avatar-circle     { transition: none; }
   .gh-id-avatar-tooltip    { transition: none; }
   .gh-id-guard-circle      { transition: none; }
   .gh-guard-popover        { transition: none; }

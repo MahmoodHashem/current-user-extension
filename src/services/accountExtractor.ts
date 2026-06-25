@@ -122,17 +122,11 @@ export class AccountExtractor {
   // ─── Avatar URL ────────────────────────────────────────────────────────────
 
   private buildAvatarUrl(username: string): string {
-    // Prefer the in-page avatar so we get the exact size cached by the browser.
-    const headerAvatar = document.querySelector<HTMLImageElement>(
-      '.AppHeader-user img.avatar-user, img.avatar-user',
-    );
-    if (headerAvatar?.src && headerAvatar.src.includes('avatars.githubusercontent.com')) {
-      // Strip the size param so we can request a specific size later.
-      return headerAvatar.src.replace(/[?&]s=\d+/, '');
-    }
-
-    // GitHub's avatar CDN always resolves for any valid username.
-    return `https://avatars.githubusercontent.com/${encodeURIComponent(username)}`;
+    // github.com/<username>.png is a stable redirect to the user's current
+    // avatar and cleanly accepts a ?size=N query param on all GitHub pages.
+    // Avoids the fragile in-page scraping that produced broken double-query
+    // URLs (e.g. …?v=4?size=96) when the source img already had params.
+    return `https://github.com/${encodeURIComponent(username)}.png`;
   }
 
   // ─── Account type ──────────────────────────────────────────────────────────

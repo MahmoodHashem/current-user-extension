@@ -6,7 +6,8 @@
   "scripts": {
     "build": "webpack --mode production",
     "dev": "webpack --mode development --watch",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "release": "npm run build && node -e \"const {execSync}=require('child_process');const v=require('./package.json').version;execSync('zip -r github-account-guard-v'+v+'.zip manifest.json popup.html dist/ icons/',{stdio:'inherit'});console.log('Created github-account-guard-v'+v+'.zip');\""
   },
   "devDependencies": {
     "@types/chrome": "^0.2.0",

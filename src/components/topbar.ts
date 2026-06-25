@@ -14,9 +14,7 @@ import { AccountGuard, GuardState } from '../services/accountGuard';
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const TOPBAR_ID = 'gh-account-identity-bar';
-const HIDDEN_CLASS     = 'gh-id-bar-hidden';
-const COMPOSER_SEL     = 'nav[aria-label="View mode"]';
-const INTERSECTION_THRESHOLD = 0.15;
+
 
 const SHIELD_SVG = `<svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor" aria-hidden="true">
   <path d="M7.467.133a1.748 1.748 0 0 1 1.066 0l5.25 1.68A1.75 1.75 0 0 1 15 3.48V7c0 1.566-.32 3.182-1.303 4.682-.983 1.498-2.585 2.813-5.032 3.855a1.697 1.697 0 0 1-1.33 0c-2.447-1.042-4.049-2.357-5.032-3.855C1.32 10.182 1 8.566 1 7V3.48a1.75 1.75 0 0 1 1.217-1.667Z"/>
@@ -29,12 +27,6 @@ export class Topbar {
   private guardState: GuardState | null = null;
   private popoverEl:  HTMLElement | null = null;
 
-  private intersectionObs:  IntersectionObserver | null = null;
-  private mutationObs:      MutationObserver | null     = null;
-  private observedComposers = new WeakSet<Element>();
-  private visibleComposers  = new Set<Element>();
-  private mutRafPending     = false;
-
   // ─── Public API ────────────────────────────────────────────────────────
 
   mount(account: GitHubAccount, guard: AccountGuard): void {
@@ -43,19 +35,12 @@ export class Topbar {
     this.ensureElement();
     this.render();
     this.el!.style.display = 'flex';
-    this.el!.classList.remove(HIDDEN_CLASS);
     this.wireAvatarCircle();
     this.wireGuardCircle();
-    this.trackComposers();
   }
 
   unmount(): void {
     this.closePopover();
-    this.intersectionObs?.disconnect();
-    this.mutationObs?.disconnect();
-    this.intersectionObs = null;
-    this.mutationObs     = null;
-    this.visibleComposers.clear();
     document.removeEventListener('click', this.onDocClick);
     this.el?.remove();
     this.el = null;
@@ -227,49 +212,6 @@ export class Topbar {
       ${currentUser ? `<p class="gh-guard-pop-current">Signed in as <strong>@${this.esc(currentUser)}</strong></p>` : ''}
     `;
     return el;
-  }
-
-  // ─── Composer visibility tracking ───────────────────────────────────────
-
-  private trackComposers(): void {
-    this.intersectionObs = new IntersectionObserver(entries => {
-      for (const e of entries) {
-        e.isIntersecting
-          ? this.visibleComposers.add(e.target)
-          : this.visibleComposers.delete(e.target);
-      }
-      this.visibleComposers.size > 0 ? this.hideWidget() : this.showWidget();
-    }, { threshold: INTERSECTION_THRESHOLD });
-
-    this.observeExistingComposers();
-
-    this.mutationObs = new MutationObserver(() => {
-      if (this.mutRafPending) return;
-      this.mutRafPending = true;
-      requestAnimationFrame(() => { this.observeExistingComposers(); this.mutRafPending = false; });
-    });
-    this.mutationObs.observe(document.body, { childList: true, subtree: true });
-  }
-
-  private observeExistingComposers(): void {
-    document.querySelectorAll<Element>(COMPOSER_SEL).forEach(el => {
-      if (!this.observedComposers.has(el)) {
-        this.observedComposers.add(el);
-        this.intersectionObs?.observe(el);
-      }
-    });
-  }
-
-  private showWidget(): void {
-    if (!this.el) return;
-    this.el.style.display = 'flex';
-    void this.el.offsetHeight;
-    this.el.classList.remove(HIDDEN_CLASS);
-  }
-
-  private hideWidget(): void {
-    this.el?.classList.add(HIDDEN_CLASS);
-    this.closePopover();
   }
 
   // ─── HTML ────────────────────────────────────────────────────────────────

@@ -1,0 +1,46 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'   # triggers on v1.0.0, v2.1.3, etc.
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build extension
+        run: npm run build
+
+      - name: Create release zip
+        run: |
+          VERSION=${GITHUB_REF_NAME}
+          zip -r "github-account-guard-${VERSION}.zip" manifest.json popup.html dist/ icons/
+          echo "ZIP=github-account-guard-${VERSION}.zip" >> $GITHUB_ENV
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.ZIP }}
+          generate_release_notes: true
+          body: |
+            ## Install instructions
+
+            1. Download the `.zip` file below and unzip it.
+            2. Open Chrome → go to `chrome://extensions`
+            3. Enable **Developer mode** (toggle, top-right corner).
+            4. Click **Load unpacked** and select the unzipped folder.
+            5. The extension is now active on all `github.com` pages.
+
+            To update: remove the old extension, repeat from step 1.

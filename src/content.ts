@@ -1,13 +1,11 @@
 // ─── GitHub Account Identity & Guard — Content Script ─────────────────────────
 //
-// Runs on ALL github.com pages (intentional — guard must catch load-more
-// buttons and author lists on any page it navigates to).
+// Runs on ALL github.com pages.
 //
-// Identity features (bottom bar, comment avatar banner) activate only on
-// issue / PR / discussion pages.
-//
-// Guard features (wrong-account blocking) activate on issue / PR pages where
-// there are comments from other known accounts.
+// Bottom circles widget   — ALL pages (avatar + guard toggle always visible).
+// Comment avatar banner   — issues / PRs / discussions only.
+// Guard blocking          — ALL pages (blocks composer + reactions when wrong
+//                           account detected on any issue, PR, or discussion).
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { Topbar }         from './components/topbar';
@@ -73,17 +71,12 @@ class IdentityWidget {
   // ─── Initialisation ────────────────────────────────────────────────────
 
   private initialise(): void {
-    // ── Guard: runs on ALL github.com pages (intentional) ──
+    // Guard + load-more: all pages
     AccountGuard.clickLoadMore();
     this.guard.recheck();
     this.startGuardObserver();
 
-    // ── Identity: only on issue / PR / discussion pages ──
-    if (!this.isTargetPage()) {
-      this.teardownIdentity();
-      return;
-    }
-
+    // Account extraction works on every GitHub page (reads meta[name="user-login"])
     const account = this.extractor.extract();
     if (!account) {
       this.scheduleRetry();
@@ -91,8 +84,16 @@ class IdentityWidget {
     }
 
     this.retryCount = 0;
+
+    // Circles widget: ALL GitHub pages
     this.topbar.mount(account, this.guard);
-    this.commentAvatar.mount(account);
+
+    // Comment avatar banner: only inside issue / PR / discussion threads
+    if (this.isTargetPage()) {
+      this.commentAvatar.mount(account);
+    } else {
+      this.commentAvatar.unmount();
+    }
   }
 
   private scheduleRetry(): void {

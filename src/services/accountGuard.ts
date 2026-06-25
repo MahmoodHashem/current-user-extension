@@ -121,22 +121,56 @@ export class AccountGuard {
 
   private getAllAuthors(): Set<string> {
     const authors = new Set<string>();
+    const EXCLUDED = new Set(['orgs', 'apps', 'teams', 'marketplace', 'sponsors']);
 
-    document
-      .querySelectorAll<HTMLElement>(
-        'a[data-hovercard-type="user"], [data-testid="comment-author"]',
-      )
-      .forEach(el => {
-        if (el.tagName === 'A') {
-          const href  = (el as HTMLAnchorElement).getAttribute('href') ?? '';
-          const match = href.match(/^\/([a-zA-Z0-9][a-zA-Z0-9-]{0,37})(?:[/?#]|$)/);
-          if (match?.[1]) { authors.add(match[1].toLowerCase()); return; }
+    const addFromEl = (el: HTMLElement): void => {
+      if (el.tagName === 'A') {
+        const href  = (el as HTMLAnchorElement).getAttribute('href') ?? '';
+        const match = href.match(/^\/([a-zA-Z0-9][a-zA-Z0-9-]{0,37})(?:[/?#]|$)/);
+        if (match?.[1] && !EXCLUDED.has(match[1])) {
+          authors.add(match[1].toLowerCase());
+          return;
         }
-        const text = el.textContent?.trim().replace(/^@/, '') ?? '';
-        if (/^[a-zA-Z0-9][a-zA-Z0-9-]{0,37}$/.test(text)) {
-          authors.add(text.toLowerCase());
-        }
-      });
+      }
+      const text = el.textContent?.trim().replace(/^@/, '') ?? '';
+      if (/^[a-zA-Z0-9][a-zA-Z0-9-]{0,37}$/.test(text)) {
+        authors.add(text.toLowerCase());
+      }
+    };
+
+    // Issue + PR conversation comments, PR inline review threads, timeline events
+    document.querySelectorAll<HTMLElement>('a[data-hovercard-type="user"]').forEach(addFromEl);
+
+    // React-rendered PR pages use data-hovercard-url="/users/<login>/hovercard"
+    // on profile links even when data-hovercard-type is absent.
+    document.querySelectorAll<HTMLElement>('a[data-hovercard-url*="/users/"]').forEach(el => {
+      const url   = el.getAttribute('data-hovercard-url') ?? '';
+      const match = url.match(/\/users\/([a-zA-Z0-9][a-zA-Z0-9-]{0,37})\//);
+      if (match?.[1] && !EXCLUDED.has(match[1])) {
+        authors.add(match[1].toLowerCase());
+      }
+    });
+
+    // PR review summary banners ("X approved", "X requested changes")
+    document.querySelectorAll<HTMLElement>(
+      '[data-testid="reviewer"], [data-testid="comment-author"]',
+    ).forEach(addFromEl);
+
+    // data-author on comment wrapper divs (present on both issue and PR comments)
+    document.querySelectorAll<HTMLElement>('[data-author]').forEach(el => {
+      const login = el.getAttribute('data-author') ?? '';
+      if (/^[a-zA-Z0-9][a-zA-Z0-9-]{0,37}$/.test(login) && !EXCLUDED.has(login)) {
+        authors.add(login.toLowerCase());
+      }
+    });
+
+    // PR collapsed review threads expose author via data-login on avatar buttons
+    document.querySelectorAll<HTMLElement>('[data-login]').forEach(el => {
+      const login = el.getAttribute('data-login') ?? '';
+      if (/^[a-zA-Z0-9][a-zA-Z0-9-]{0,37}$/.test(login) && !EXCLUDED.has(login)) {
+        authors.add(login.toLowerCase());
+      }
+    });
 
     return authors;
   }
@@ -148,9 +182,14 @@ export class AccountGuard {
     return null;
   }
 
-  // ─── Load-more auto-click (intentional — kept from original github-guard) ──
+  // ─── Load-more auto-click ───────────────────────────────────────────────
+  // Only runs on issue and PR pages so it doesn't accidentally click
+  // "Show more" buttons on unrelated pages (repo file browser, etc.).
 
   static clickLoadMore(): void {
+    const p = location.pathname;
+    if (!/\/issues\/\d+|\/pull\/\d+/.test(p)) return;
+
     document.querySelectorAll<HTMLButtonElement>('button').forEach(btn => {
       const text = btn.innerText.toLowerCase();
       if (

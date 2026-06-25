@@ -109,8 +109,16 @@ export class GuardOverlay {
         taWrapper.appendChild(this.buildTextareaOverlay(this.state!));
       }
 
-      // ④ Block the submit button (it lives in the footer, one level up from the CommentBox)
-      const submitBtn = wrapper.parentElement?.querySelector<HTMLElement>('button[type="submit"]');
+      // ④ Block the submit / comment button.
+      //    On PR pages the button lives in a sibling div, not a child of
+      //    wrapper.parentElement, so we anchor to the nearest <form> first.
+      //    Only button[type="submit"] — broader selectors over-match toolbar
+      //    buttons and break the editor.
+      const form = wrapper.closest<HTMLFormElement>('form');
+      const submitBtn = (
+        form?.querySelector<HTMLElement>('button[type="submit"]') ??
+        wrapper.parentElement?.querySelector<HTMLElement>('button[type="submit"]')
+      );
       if (submitBtn && !submitBtn.hasAttribute(BLOCKED_ATTR)) {
         submitBtn.setAttribute('inert', '');
         submitBtn.setAttribute(BLOCKED_ATTR, 'submit');
