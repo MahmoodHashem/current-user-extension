@@ -40,12 +40,15 @@ export const STYLES = `
 }
 .gh-id-proposal-circle {
   position: relative;
-  display: block;
-  width: 38px;
-  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
   margin-left: 8px !important;
   border-radius: 50%;
-  box-shadow: 0 2px 8px rgba(31, 35, 40, 0.2), 0 0 0 2px #fff;
+  border: 1.5px solid;
+  box-shadow: 0 2px 6px rgba(31, 35, 40, 0.15), 0 0 0 2px #fff;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
   flex-shrink: 0;
   cursor: pointer;
@@ -53,27 +56,22 @@ export const STYLES = `
   outline: none;
 }
 .gh-id-proposal-circle:hover {
-  transform: scale(1.09);
-  box-shadow: 0 4px 14px rgba(31, 35, 40, 0.28), 0 0 0 2px #fff;
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(31, 35, 40, 0.22), 0 0 0 2px #fff;
 }
 .gh-id-proposal-circle:focus-visible {
-  box-shadow: 0 0 0 3px var(--color-accent-fg, #0969da), 0 0 0 5px #fff;
+  box-shadow: 0 0 0 3px currentColor, 0 0 0 5px #fff;
 }
-.gh-id-proposal-circle img {
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  display: block;
-  object-fit: cover;
-}
-.gh-id-proposal-dot {
+.gh-id-pc-avatar {
   position: absolute;
-  bottom: 0;
-  right: 0;
-  width: 10px;
-  height: 10px;
+  bottom: -3px;
+  right: -3px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
   border: 2px solid #fff;
+  object-fit: cover;
+  display: block;
 }
 
 
@@ -510,12 +508,12 @@ input:checked ~ .gh-guard-track .gh-guard-thumb    { transform: translateX(15px)
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
 }
 [data-color-mode="dark"] .gh-id-proposal-circle {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4), 0 0 0 2px #30363d;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4), 0 0 0 2px #0d1117;
 }
 [data-color-mode="dark"] .gh-id-proposal-circle:hover {
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5), 0 0 0 2px #30363d;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5), 0 0 0 2px #0d1117;
 }
-[data-color-mode="dark"] .gh-id-proposal-dot { border-color: #0d1117; }
+[data-color-mode="dark"] .gh-id-pc-avatar { border-color: #0d1117; }
 [data-color-mode="dark"] .gh-guard-track    { background: #30363d; }
 [data-color-mode="dark"] input:checked ~ .gh-guard-track { background: #238636; }
 

@@ -20,6 +20,16 @@ const SHIELD_SVG = `<svg viewBox="0 0 16 16" width="13" height="13" fill="curren
   <path d="M7.467.133a1.748 1.748 0 0 1 1.066 0l5.25 1.68A1.75 1.75 0 0 1 15 3.48V7c0 1.566-.32 3.182-1.303 4.682-.983 1.498-2.585 2.813-5.032 3.855a1.697 1.697 0 0 1-1.33 0c-2.447-1.042-4.049-2.357-5.032-3.855C1.32 10.182 1 8.566 1 7V3.48a1.75 1.75 0 0 1 1.217-1.667Z"/>
 </svg>`;
 
+// Comment bubble (for comments / C+ / reviewer circles)
+const COMMENT_SVG = `<svg viewBox="0 0 16 16" width="15" height="15" fill="currentColor" aria-hidden="true">
+  <path d="M1 2.75C1 1.784 1.784 1 2.75 1h10.5c.966 0 1.75.784 1.75 1.75v7.5A1.75 1.75 0 0 1 13.25 12H9.06l-2.573 2.573A1.457 1.457 0 0 1 4 13.543V12H2.75A1.75 1.75 0 0 1 1 10.25Z"/>
+</svg>`;
+
+// PR / proposal icon (for author circles — they opened the issue or PR)
+const PROPOSAL_SVG = `<svg viewBox="0 0 16 16" width="15" height="15" fill="currentColor" aria-hidden="true">
+  <path d="M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854V2.5h1A2.5 2.5 0 0 1 13.5 5v5.628a2.251 2.251 0 1 1-1.5 0V5a1 1 0 0 0-1-1h-1v1.646a.25.25 0 0 1-.427.177L7.177 3.427a.25.25 0 0 1 0-.354Z"/>
+</svg>`;
+
 export class Topbar {
   private el:            HTMLElement | null = null;
   private account:       GitHubAccount | null = null;
@@ -274,33 +284,47 @@ export class Topbar {
       ? [currentUser, ...myAccounts.filter(a => a.toLowerCase() !== currentUser.toLowerCase())]
       : myAccounts;
 
-    const DOT_COLOR: Record<string, string> = {
+    // Role -> icon, border/icon color, light background
+    const ROLE_ICON:    Record<string, string> = { author: PROPOSAL_SVG };
+    const ROLE_COLOR:   Record<string, string> = {
       author:   '#0969da',
       'c+':     '#8250df',
       reviewer: '#1a7f37',
+    };
+    const ROLE_BG:      Record<string, string> = {
+      author:   '#0969da14',
+      'c+':     '#8250df14',
+      reviewer: '#1a7f3714',
     };
 
     const circles = all.flatMap(u => {
       const { commentUrl, role } = this.guard!.getParticipation(u);
       if (!commentUrl) return [];
-      const isMe  = u.toLowerCase() === currentUser.toLowerCase();
-      const label = isMe
+      const isMe    = u.toLowerCase() === currentUser.toLowerCase();
+      const label   = isMe
         ? (role === 'author' ? 'Your proposal' : 'Your comment')
-        : (role === 'author' ? `@${u}'s proposal` : `@${u}'s comment`);
-      const dotColor = DOT_COLOR[role ?? ''] ?? '#656d76';
-      return [`<a class="gh-id-proposal-circle" href="${this.esc(commentUrl)}"
-                   rel="noopener noreferrer"
-                  title="Jump to ${this.esc(label)}" aria-label="${this.esc(label)}">
-                <img src="https://github.com/${this.esc(u)}.png?size=76"
-                     width="38" height="38" alt="" loading="lazy" />
-                <span class="gh-id-proposal-dot" style="background:${dotColor}"></span>
-              </a>`];
+        : (role === 'author' ? `@${u}` + "'s proposal" : `@${u}` + "'s comment");
+      const icon    = ROLE_ICON[role ?? ''] ?? COMMENT_SVG;
+      const color   = ROLE_COLOR[role ?? ''] ?? '#656d76';
+      const bg      = ROLE_BG[role ?? '']   ?? '#6567761a';
+      return [
+        '<a class="gh-id-proposal-circle"' +
+        ' href="' + this.esc(commentUrl) + '"' +
+        ' rel="noopener noreferrer"' +
+        ' title="' + this.esc(label) + '"' +
+        ' aria-label="' + this.esc(label) + '"' +
+        ' style="background:' + bg + ';border-color:' + color + ';color:' + color + '">' +
+        icon +
+        '<img class="gh-id-pc-avatar"' +
+        ' src="https://github.com/' + this.esc(u) + '.png?size=32"' +
+        ' width="14" height="14" alt="" loading="lazy" />' +
+        '</a>'
+      ];
     });
 
     const html = circles.join('');
-    // Compare against the last string we generated, NOT chipsEl.innerHTML — the
-    // browser normalises href values (relative → absolute) on readback, so the
-    // innerHTML comparison is always false and causes an infinite mutation loop.
+    // Compare against last generated string, NOT chipsEl.innerHTML — the browser
+    // normalises href values on readback causing an infinite mutation loop.
     if (html === this.lastChipsHtml) return;
     this.lastChipsHtml = html;
     chipsEl.innerHTML  = html;
