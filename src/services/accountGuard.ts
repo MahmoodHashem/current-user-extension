@@ -21,19 +21,17 @@ export class AccountGuard {
 
   async init(): Promise<void> {
     await this.loadAccounts();
-    await this.loadDisabledAccounts();
+
+    // Erase any previously persisted disabled-accounts so old data doesn't
+    // override the "reset on refresh" behaviour.
+    chrome.storage.sync.remove(DISABLED_STORAGE_KEY);
 
     chrome.storage.onChanged.addListener((changes, area) => {
       if (area !== 'sync') return;
       if (STORAGE_KEY in changes) {
         this.myAccounts = (changes[STORAGE_KEY].newValue as string[]) ?? DEFAULT_ACCOUNTS;
+        this.onStateChange?.(this.evaluate());
       }
-      if (DISABLED_STORAGE_KEY in changes) {
-        this.disabledAccounts = new Set(
-          (changes[DISABLED_STORAGE_KEY].newValue as string[]) ?? [],
-        );
-      }
-      this.onStateChange?.(this.evaluate());
     });
   }
 
@@ -83,7 +81,7 @@ export class AccountGuard {
     } else {
       this.disabledAccounts.add(key);
     }
-    chrome.storage.sync.set({ [DISABLED_STORAGE_KEY]: [...this.disabledAccounts] });
+    // Intentionally NOT persisted — resets to all-active on every page refresh.
     this.onStateChange?.(this.evaluate());
   }
 
@@ -100,17 +98,6 @@ export class AccountGuard {
         if (chrome.runtime.lastError) { resolve(); return; }
         const val = result[STORAGE_KEY];
         this.myAccounts = (Array.isArray(val) && val.length > 0) ? val : [...DEFAULT_ACCOUNTS];
-        resolve();
-      });
-    });
-  }
-
-  private loadDisabledAccounts(): Promise<void> {
-    return new Promise(resolve => {
-      chrome.storage.sync.get({ [DISABLED_STORAGE_KEY]: [] }, result => {
-        if (chrome.runtime.lastError) { console.error('[Guard] loadDisabledAccounts error:', chrome.runtime.lastError); resolve(); return; }
-        const val = result[DISABLED_STORAGE_KEY];
-        this.disabledAccounts = new Set(Array.isArray(val) ? val : []);
         resolve();
       });
     });
