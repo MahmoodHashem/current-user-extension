@@ -188,6 +188,109 @@ export class AccountGuard {
     return null;
   }
 
+  // ─── Per-user participation (for popover display) ────────────────────────
+
+  /**
+   * Returns participation info for `username` in the current issue / PR.
+   * Only meaningful on issue, PR, or discussion pages; returns nulls elsewhere.
+   *
+   * Roles:
+   *   'author'   — opened this issue / PR
+   *   'c+'       — assigned (and/or has comments) but didn't open it
+   *   'reviewer' — left a PR review (no other role applies)
+   *   null       — no special role detected
+   */
+  getParticipation(username: string): {
+    commentUrl: string | null;
+    role: 'author' | 'c+' | 'reviewer' | null;
+  } {
+    const p = location.pathname;
+    if (!/\/issues\/\d+|\/pull\/\d+|\/discussions\/\d+/.test(p)) {
+      return { commentUrl: null, role: null };
+    }
+
+    const lower = username.toLowerCase();
+    const base  = location.href.split('#')[0];
+
+    // ── First comment / review URL ──────────────────────────────────────
+    let commentUrl: string | null = null;
+    const commentEls = document.querySelectorAll<HTMLElement>(
+      '[id^="issuecomment-"], [id^="pullrequestreview-"]',
+    );
+    for (const el of commentEls) {
+      if (this.elHasUser(el, lower)) {
+        commentUrl = `${base}#${el.id}`;
+        break;
+      }
+    }
+
+    // ── Is opener? ───────────────────────────────────────────────────────
+    // The "X opened this" timeline event contains the opener's user link
+    // before any issuecomment- element.
+    let isOpener = false;
+    document.querySelectorAll<HTMLElement>(
+      '.TimelineItem, [data-testid*="timeline"]',
+    ).forEach(item => {
+      if (isOpener) return;
+      const text = item.textContent ?? '';
+      if (/opened this|created this/i.test(text) && this.elHasUser(item, lower)) {
+        isOpener = true;
+      }
+    });
+    // Fallback: first user-attributed block before any issuecomment- elements
+    if (!isOpener) {
+      const firstComment = document.querySelector<HTMLElement>('[id^="issuecomment-"]');
+      const opBody = document.querySelector<HTMLElement>('.js-comment-body, .comment-body');
+      if (opBody && firstComment && opBody.compareDocumentPosition(firstComment) & Node.DOCUMENT_POSITION_FOLLOWING) {
+        const opContainer = opBody.closest('[data-body-version], .js-comment, article') as HTMLElement | null;
+        if (opContainer && this.elHasUser(opContainer, lower)) isOpener = true;
+      }
+    }
+
+    // ── Is assigned? ─────────────────────────────────────────────────────
+    let isAssigned = false;
+    const assigneeRoot = document.querySelector<HTMLElement>(
+      '.sidebar-assignees, [data-testid*="assignee"], [aria-label*="Assignee" i]',
+    );
+    if (assigneeRoot && this.elHasUser(assigneeRoot, lower)) isAssigned = true;
+
+    // ── Is reviewer? (PR only) ───────────────────────────────────────────
+    let isReviewer = false;
+    const reviewerRoot = document.querySelector<HTMLElement>(
+      '.sidebar-reviews, [data-testid*="reviewer"], [aria-label*="Reviewer" i]',
+    );
+    if (reviewerRoot && this.elHasUser(reviewerRoot, lower)) isReviewer = true;
+
+    // If opener has no comment yet, the link is the issue/PR itself
+    if (isOpener && !commentUrl) commentUrl = base;
+
+    // ── Role priority ────────────────────────────────────────────────────
+    const role: 'author' | 'c+' | 'reviewer' | null =
+      isOpener   ? 'author'   :
+      isAssigned ? 'c+'       :
+      isReviewer ? 'reviewer' :
+      null;
+
+    return { commentUrl, role };
+  }
+
+  private elHasUser(el: HTMLElement, usernameLower: string): boolean {
+    // img alt — GitHub preserves original case, so compare after lowercasing
+    for (const img of el.querySelectorAll<HTMLImageElement>('img[alt^="@"]')) {
+      if (img.alt.replace(/^@/, '').trim().toLowerCase() === usernameLower) return true;
+    }
+    // data-login attributes (most explicit signal)
+    for (const le of el.querySelectorAll<HTMLElement>('[data-login]')) {
+      if ((le.getAttribute('data-login') ?? '').toLowerCase() === usernameLower) return true;
+    }
+    // Exact profile-page links: href="/username" (no trailing segment)
+    for (const a of el.querySelectorAll<HTMLAnchorElement>('a[href]')) {
+      const href = (a.getAttribute('href') ?? '').toLowerCase();
+      if (href === `/${usernameLower}`) return true;
+    }
+    return false;
+  }
+
   // ─── Load-more auto-click ───────────────────────────────────────────────
   // Only runs on issue and PR pages so it doesn't accidentally click
   // "Show more" buttons on unrelated pages (repo file browser, etc.).

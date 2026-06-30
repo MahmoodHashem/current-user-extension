@@ -5,9 +5,9 @@ import { AccountGuard, GuardState } from '../services/accountGuard';
 //
 // Two floating circles, bottom-left corner of the viewport:
 //
-//   ● Large circle  — avatar image; hover reveals a tooltip with name + badge.
+//   ● Large circle  -- avatar image; hover reveals a tooltip with name + badge.
 //                     Click opens the GitHub profile.
-//   ● Small circle  — shield icon for Account Guard; click opens the per-account
+//   ● Small circle  -- shield icon for Account Guard; click opens the per-account
 //                     toggle popover.
 //
 // Both circles slide-fade out when a comment composer enters the viewport.
@@ -21,11 +21,12 @@ const SHIELD_SVG = `<svg viewBox="0 0 16 16" width="13" height="13" fill="curren
 </svg>`;
 
 export class Topbar {
-  private el:         HTMLElement | null = null;
-  private account:    GitHubAccount | null = null;
-  private guard:      AccountGuard | null = null;
-  private guardState: GuardState | null = null;
-  private popoverEl:  HTMLElement | null = null;
+  private el:            HTMLElement | null = null;
+  private account:       GitHubAccount | null = null;
+  private guard:         AccountGuard | null = null;
+  private guardState:    GuardState | null = null;
+  private popoverEl:     HTMLElement | null = null;
+  private lastChipsHtml: string = '';
 
   // ─── Public API ────────────────────────────────────────────────────────
 
@@ -44,12 +45,14 @@ export class Topbar {
     document.removeEventListener('click', this.onDocClick);
     this.el?.remove();
     this.el = null;
+    this.lastChipsHtml = '';
   }
 
   updateGuardState(state: GuardState): void {
     this.guardState = state;
     this.renderGuardDot();
     this.syncPopoverToggles(state);
+    this.renderChips();
   }
 
   // ─── DOM ────────────────────────────────────────────────────────────────
@@ -184,22 +187,61 @@ export class Topbar {
     const disabled = new Set(disabledAccounts.map(a => a.toLowerCase()));
     const peers    = myAccounts.filter(a => a.toLowerCase() !== currentUser.toLowerCase());
 
-    const rows = peers.length === 0
-      ? `<p class="gh-guard-pop-empty">No other accounts in your list.</p>`
-      : peers.map(u => {
-          const active = !disabled.has(u.toLowerCase());
+    // Also show the current user in the list (read-only, no toggle)
+    const allAccounts = [currentUser, ...peers].filter(Boolean);
+
+    const ROLE_LABEL: Record<string, string> = {
+      author:   'Author',
+      'c+':     'C+',
+      reviewer: 'Reviewer',
+    };
+    const ROLE_COLOR: Record<string, string> = {
+      author:   '#0969da',
+      'c+':     '#8250df',
+      reviewer: '#1a7f37',
+    };
+
+    const rows = allAccounts.length === 0
+      ? `<p class="gh-guard-pop-empty">No accounts in your list.</p>`
+      : allAccounts.map(u => {
+          const isCurrentUser = u.toLowerCase() === currentUser.toLowerCase();
+          const active        = !disabled.has(u.toLowerCase());
+          const participation = this.guard?.getParticipation(u);
+          const { commentUrl, role } = participation ?? { commentUrl: null, role: null };
+
+          const namePart = commentUrl
+            ? `<a class="gh-guard-pop-name gh-guard-pop-link"
+                  href="${this.esc(commentUrl)}"
+                  rel="noopener noreferrer"
+                  title="Jump to @${this.esc(u)}'s comment / proposal"
+                  >@${this.esc(u)}</a>`
+            : `<span class="gh-guard-pop-name">@${this.esc(u)}</span>`;
+
+          const roleBadge = role
+            ? `<span class="gh-guard-pop-role"
+                     style="color:${ROLE_COLOR[role]};border-color:${ROLE_COLOR[role]}20;background:${ROLE_COLOR[role]}12"
+                     >${ROLE_LABEL[role]}</span>`
+            : '';
+
+          const togglePart = isCurrentUser
+            ? `<span class="gh-guard-pop-you">you</span>`
+            : `<span class="gh-guard-pop-status">${active ? 'Active' : 'Paused'}</span>
+               <label class="gh-guard-switch" aria-label="Toggle guard for @${this.esc(u)}">
+                 <input type="checkbox" data-guard-account="${this.esc(u)}" ${active ? 'checked' : ''} />
+                 <span class="gh-guard-track"><span class="gh-guard-thumb"></span></span>
+               </label>`;
+
           return `
-            <label class="gh-guard-pop-row">
+            <div class="gh-guard-pop-row${isCurrentUser ? ' gh-guard-pop-row--you' : ''}">
               <img class="gh-guard-pop-avatar"
                    src="https://github.com/${this.esc(u)}.png?size=48"
                    width="22" height="22" alt="" loading="lazy" />
-              <span class="gh-guard-pop-name">@${this.esc(u)}</span>
-              <span class="gh-guard-pop-status">${active ? 'Active' : 'Paused'}</span>
-              <span class="gh-guard-switch" aria-hidden="true">
-                <input type="checkbox" data-guard-account="${this.esc(u)}" ${active ? 'checked' : ''} />
-                <span class="gh-guard-track"><span class="gh-guard-thumb"></span></span>
+              <span class="gh-guard-pop-meta">
+                ${namePart}
+                ${roleBadge}
               </span>
-            </label>`;
+              ${togglePart}
+            </div>`;
         }).join('');
 
     el.innerHTML = `
@@ -209,9 +251,59 @@ export class Topbar {
       </div>
       <p class="gh-guard-pop-desc">Block interactions if a selected account has already participated here.</p>
       <div class="gh-guard-pop-list">${rows}</div>
-      ${currentUser ? `<p class="gh-guard-pop-current">Signed in as <strong>@${this.esc(currentUser)}</strong></p>` : ''}
     `;
     return el;
+  }
+
+  // ─── Participation circles ───────────────────────────────────────────────
+
+  private renderChips(): void {
+    const chipsEl = this.el?.querySelector<HTMLElement>('.gh-id-chips');
+    if (!chipsEl || !this.guardState || !this.guard) {
+      if (chipsEl) chipsEl.innerHTML = '';
+      return;
+    }
+
+    const { myAccounts, currentUser } = this.guardState;
+    if (!/\/issues\/\d+|\/pull\/\d+|\/discussions\/\d+/.test(location.pathname)) {
+      if (chipsEl.innerHTML) chipsEl.innerHTML = '';
+      return;
+    }
+
+    const all = currentUser
+      ? [currentUser, ...myAccounts.filter(a => a.toLowerCase() !== currentUser.toLowerCase())]
+      : myAccounts;
+
+    const DOT_COLOR: Record<string, string> = {
+      author:   '#0969da',
+      'c+':     '#8250df',
+      reviewer: '#1a7f37',
+    };
+
+    const circles = all.flatMap(u => {
+      const { commentUrl, role } = this.guard!.getParticipation(u);
+      if (!commentUrl) return [];
+      const isMe  = u.toLowerCase() === currentUser.toLowerCase();
+      const label = isMe
+        ? (role === 'author' ? 'Your proposal' : 'Your comment')
+        : (role === 'author' ? `@${u}'s proposal` : `@${u}'s comment`);
+      const dotColor = DOT_COLOR[role ?? ''] ?? '#656d76';
+      return [`<a class="gh-id-proposal-circle" href="${this.esc(commentUrl)}"
+                   rel="noopener noreferrer"
+                  title="Jump to ${this.esc(label)}" aria-label="${this.esc(label)}">
+                <img src="https://github.com/${this.esc(u)}.png?size=76"
+                     width="38" height="38" alt="" loading="lazy" />
+                <span class="gh-id-proposal-dot" style="background:${dotColor}"></span>
+              </a>`];
+    });
+
+    const html = circles.join('');
+    // Compare against the last string we generated, NOT chipsEl.innerHTML — the
+    // browser normalises href values (relative → absolute) on readback, so the
+    // innerHTML comparison is always false and causes an infinite mutation loop.
+    if (html === this.lastChipsHtml) return;
+    this.lastChipsHtml = html;
+    chipsEl.innerHTML  = html;
   }
 
   // ─── HTML ────────────────────────────────────────────────────────────────
@@ -222,34 +314,37 @@ export class Topbar {
       : '';
 
     return `
-      <div class="gh-id-avatar-circle" tabindex="0" role="link"
-           aria-label="@${this.esc(account.username)} — view GitHub profile">
-        <img class="gh-id-avatar-img"
-             src="${this.esc(account.avatarUrl)}?size=96"
-             alt="${this.esc(account.username)}'s avatar"
-             width="48" height="48" loading="lazy" />
-        <div class="gh-id-avatar-tooltip" role="tooltip">
-          <img class="gh-id-tt-avatar"
-               src="${this.esc(account.avatarUrl)}?size=80"
-               alt="" width="36" height="36" loading="lazy" />
-          <div class="gh-id-tt-info">
-            <span class="gh-id-tt-name">${this.esc(account.displayName)}</span>
-            <span class="gh-id-tt-handle">@${this.esc(account.username)}</span>
-            ${emailLine}
-            <div class="gh-id-tt-badge"
-                 style="color:${badge.fgColor};background:${badge.bgColor};border-color:${badge.borderColor}">
-              <span class="gh-id-dot" style="background:${badge.dotColor}" aria-hidden="true"></span>
-              ${this.esc(badge.label)}
+      <div class="gh-id-chips"></div>
+      <div class="gh-id-circles">
+        <div class="gh-id-avatar-circle" tabindex="0" role="link"
+             aria-label="@${this.esc(account.username)} -- view GitHub profile">
+          <img class="gh-id-avatar-img"
+               src="${this.esc(account.avatarUrl)}?size=96"
+               alt="${this.esc(account.username)}'s avatar"
+               width="48" height="48" loading="lazy" />
+          <div class="gh-id-avatar-tooltip" role="tooltip">
+            <img class="gh-id-tt-avatar"
+                 src="${this.esc(account.avatarUrl)}?size=80"
+                 alt="" width="36" height="36" loading="lazy" />
+            <div class="gh-id-tt-info">
+              <span class="gh-id-tt-name">${this.esc(account.displayName)}</span>
+              <span class="gh-id-tt-handle">@${this.esc(account.username)}</span>
+              ${emailLine}
+              <div class="gh-id-tt-badge"
+                   style="color:${badge.fgColor};background:${badge.bgColor};border-color:${badge.borderColor}">
+                <span class="gh-id-dot" style="background:${badge.dotColor}" aria-hidden="true"></span>
+                ${this.esc(badge.label)}
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <button class="gh-id-guard-circle" type="button"
-              aria-label="Account Guard settings" aria-haspopup="dialog" title="Account Guard">
-        ${SHIELD_SVG}
-        <span class="gh-id-guard-dot" aria-hidden="true" style="display:none"></span>
-      </button>
+        <button class="gh-id-guard-circle" type="button"
+                aria-label="Account Guard settings" aria-haspopup="dialog" title="Account Guard">
+          ${SHIELD_SVG}
+          <span class="gh-id-guard-dot" aria-hidden="true" style="display:none"></span>
+        </button>
+      </div>
     `;
   }
 

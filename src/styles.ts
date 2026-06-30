@@ -20,11 +20,60 @@ export const STYLES = `
   bottom: 24px;
   left: 20px;
   display: none; /* set to flex by JS */
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 20px;
+  z-index: 95;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.gh-id-circles {
+  display: flex;
   flex-direction: row;
   align-items: flex-end;
   gap: 8px;
-  z-index: 95;
-  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.gh-id-chips {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+}
+.gh-id-proposal-circle {
+  position: relative;
+  display: block;
+  width: 38px;
+  height: 38px;
+  margin-left: 8px !important;
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(31, 35, 40, 0.2), 0 0 0 2px #fff;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  flex-shrink: 0;
+  cursor: pointer;
+  text-decoration: none;
+  outline: none;
+}
+.gh-id-proposal-circle:hover {
+  transform: scale(1.09);
+  box-shadow: 0 4px 14px rgba(31, 35, 40, 0.28), 0 0 0 2px #fff;
+}
+.gh-id-proposal-circle:focus-visible {
+  box-shadow: 0 0 0 3px var(--color-accent-fg, #0969da), 0 0 0 5px #fff;
+}
+.gh-id-proposal-circle img {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: block;
+  object-fit: cover;
+}
+.gh-id-proposal-dot {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid #fff;
 }
 
 
@@ -237,11 +286,11 @@ export const STYLES = `
   gap: 8px;
   padding: 7px 8px;
   border-radius: 8px;
-  cursor: pointer;
   user-select: none;
   transition: background 0.1s;
 }
 .gh-guard-pop-row:hover { background: var(--color-neutral-muted, rgba(175,184,193,0.15)); }
+.gh-guard-pop-row--you { opacity: 0.6; }
 .gh-guard-pop-avatar {
   width: 22px;
   height: 22px;
@@ -250,32 +299,49 @@ export const STYLES = `
   object-fit: cover;
   flex-shrink: 0;
 }
-.gh-guard-pop-name {
+.gh-guard-pop-meta {
   flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+.gh-guard-pop-name {
   font-size: 12px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   color: var(--color-fg-default, #1f2328);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  text-decoration: none;
+}
+.gh-guard-pop-link:hover { text-decoration: underline; }
+.gh-guard-pop-role {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  padding: 1px 4px;
+  border-radius: 3px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .gh-guard-pop-status {
   font-size: 10px;
   color: var(--color-fg-muted, #656d76);
   flex-shrink: 0;
 }
+.gh-guard-pop-you {
+  font-size: 10px;
+  color: var(--color-fg-muted, #656d76);
+  flex-shrink: 0;
+  font-style: italic;
+}
 .gh-guard-pop-empty {
   font-size: 12px;
   color: var(--color-fg-muted, #656d76);
   font-style: italic;
   padding: 4px 0;
-}
-.gh-guard-pop-current {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid var(--color-border-muted, #d8dee4);
-  font-size: 11px;
-  color: var(--color-fg-muted, #656d76);
 }
 
 /* ── Toggle switch ───────────────────────────────────────────────────────── */
@@ -443,6 +509,13 @@ input:checked ~ .gh-guard-track .gh-guard-thumb    { transform: translateX(15px)
 [data-color-mode="dark"] .gh-id-guard-circle {
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
 }
+[data-color-mode="dark"] .gh-id-proposal-circle {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4), 0 0 0 2px #30363d;
+}
+[data-color-mode="dark"] .gh-id-proposal-circle:hover {
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5), 0 0 0 2px #30363d;
+}
+[data-color-mode="dark"] .gh-id-proposal-dot { border-color: #0d1117; }
 [data-color-mode="dark"] .gh-guard-track    { background: #30363d; }
 [data-color-mode="dark"] input:checked ~ .gh-guard-track { background: #238636; }
 
