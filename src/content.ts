@@ -8,23 +8,25 @@
 //                           account detected on any issue, PR, or discussion).
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { Topbar }         from './components/topbar';
-import { CommentAvatar }  from './components/commentAvatar';
-import { GuardOverlay }   from './components/guardOverlay';
+import { Topbar }          from './components/topbar';
+import { CommentAvatar }   from './components/commentAvatar';
+import { GuardOverlay }    from './components/guardOverlay';
+import { ScrollToBottom }  from './components/scrollToBottom';
 import { AccountExtractor } from './services/accountExtractor';
-import { AccountGuard }   from './services/accountGuard';
-import { STYLES }         from './styles';
+import { AccountGuard }    from './services/accountGuard';
+import { STYLES }          from './styles';
 
 const NAV_DEBOUNCE_MS  = 400;
 const RETRY_INTERVAL_MS = 600;
 const MAX_RETRIES       = 6;
 
 class IdentityWidget {
-  private readonly extractor     = new AccountExtractor();
-  private readonly topbar        = new Topbar();
-  private readonly commentAvatar = new CommentAvatar();
-  private readonly guard         = new AccountGuard();
-  private readonly guardOverlay  = new GuardOverlay();
+  private readonly extractor      = new AccountExtractor();
+  private readonly topbar         = new Topbar();
+  private readonly commentAvatar  = new CommentAvatar();
+  private readonly guard          = new AccountGuard();
+  private readonly guardOverlay   = new GuardOverlay();
+  private readonly scrollToBottom = new ScrollToBottom();
 
   private stylesInjected   = false;
   private navDebounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -37,6 +39,9 @@ class IdentityWidget {
 
   async init(): Promise<void> {
     this.injectStyles();
+
+    // Page-content-agnostic — mounted once, stays alive across SPA navigations.
+    this.scrollToBottom.mount();
 
     // Load account list from storage (async, once per page lifetime).
     await this.guard.init();
@@ -128,6 +133,7 @@ class IdentityWidget {
       requestAnimationFrame(() => {
         AccountGuard.clickLoadMore();
         this.guard.recheck();
+        this.scrollToBottom.recheck();
         this.guardRafPending = false;
       });
     });
@@ -162,6 +168,7 @@ class IdentityWidget {
     this.navDebounceTimer = setTimeout(() => {
       this.teardown();
       this.initialise();
+      this.scrollToBottom.recheck();
     }, NAV_DEBOUNCE_MS);
   }
 

@@ -4,11 +4,56 @@ export const STYLES = `
 .gh-id-comment-banner *,
 .gh-guard-notice *,
 .gh-guard-ta-overlay *,
-.gh-guard-popover * {
+.gh-guard-popover *,
+#gh-scroll-bottom-btn {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SCROLL-TO-BOTTOM BUTTON — bottom-right corner
+   ══════════════════════════════════════════════════════════════════════════ */
+
+#gh-scroll-bottom-btn {
+  position: fixed;
+  bottom: 24px;
+  right: 20px;
+  z-index: 95;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--color-canvas-default, #ffffff);
+  border: 1.5px solid var(--color-border-default, #d0d7de);
+  box-shadow: 0 2px 10px rgba(31, 35, 40, 0.18);
+  color: var(--color-fg-muted, #656d76);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+
+  opacity: 0;
+  transform: translateY(10px);
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease, border-color 0.12s, color 0.12s, box-shadow 0.12s;
+}
+#gh-scroll-bottom-btn.gh-scroll-bottom-visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+#gh-scroll-bottom-btn:hover {
+  border-color: var(--color-fg-default, #1f2328);
+  color: var(--color-fg-default, #1f2328);
+  box-shadow: 0 4px 14px rgba(31, 35, 40, 0.26);
+}
+#gh-scroll-bottom-btn:focus-visible {
+  outline: 2px solid var(--color-accent-fg, #0969da);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  #gh-scroll-bottom-btn { transition: opacity 0.01s linear; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -506,6 +551,12 @@ input:checked ~ .gh-guard-track .gh-guard-thumb    { transform: translateX(15px)
 }
 [data-color-mode="dark"] .gh-id-guard-circle {
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+[data-color-mode="dark"] #gh-scroll-bottom-btn {
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+}
+[data-color-mode="dark"] #gh-scroll-bottom-btn:hover {
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
 }
 [data-color-mode="dark"] .gh-id-proposal-circle {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4), 0 0 0 2px #0d1117;
