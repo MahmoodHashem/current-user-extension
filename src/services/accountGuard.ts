@@ -291,6 +291,156 @@ export class AccountGuard {
     return false;
   }
 
+  // ─── Linked PRs (Development sidebar + timeline cross-references) ────────
+
+  /**
+   * Finds pull requests linked to the current issue that were opened by one
+   * of the saved accounts. Only meaningful on issue pages.
+   *
+   * Two sources, merged and de-duplicated by PR number:
+   *   1. The "Development" sidebar section (present when the PR closes the
+   *      issue via a keyword like "Fixes #123").
+   *   2. Timeline cross-reference events ("X mentioned this" / "X linked a
+   *      pull request") — the common case when the PR merely references the
+   *      issue without an auto-close keyword.
+   */
+  getLinkedPRsByAccounts(): Array<{
+    url:      string;
+    number:   string;
+    state:    'open' | 'merged' | 'closed' | 'draft';
+    username: string;
+  }> {
+    if (!/\/issues\/\d+/.test(location.pathname)) return [];
+
+    const seenNumbers = new Set<string>();
+    const combined = [
+      ...this.getLinkedPRsFromSidebar(),
+      ...this.getLinkedPRsFromTimeline(),
+    ];
+
+    const results: typeof combined = [];
+    for (const pr of combined) {
+      if (seenNumbers.has(pr.number)) continue;
+      seenNumbers.add(pr.number);
+      results.push(pr);
+    }
+    return results;
+  }
+
+  private getLinkedPRsFromSidebar(): Array<{
+    url: string; number: string; state: 'open' | 'merged' | 'closed' | 'draft'; username: string;
+  }> {
+    const savedLower = new Set(this.myAccounts.map(a => a.toLowerCase()));
+    const results: Array<{ url: string; number: string; state: 'open' | 'merged' | 'closed' | 'draft'; username: string }> = [];
+    const seenNumbers = new Set<string>();
+
+    const devRoot = this.findDevelopmentSectionRoot();
+    if (!devRoot) return [];
+
+    devRoot.querySelectorAll<HTMLAnchorElement>('a[href*="/pull/"]').forEach(a => {
+      const href  = a.getAttribute('href') ?? '';
+      const match = href.match(/\/pull\/(\d+)/);
+      if (!match) return;
+      const number = match[1];
+      if (seenNumbers.has(number)) return;
+
+      // Row container that likely holds the PR's status icon + author avatar.
+      let row: HTMLElement | null = a;
+      for (let i = 0; i < 5 && row; i++) {
+        if (row.querySelector('img[alt^="@"]')) break;
+        row = row.parentElement;
+      }
+      if (!row) return;
+
+      const avatar = row.querySelector<HTMLImageElement>('img[alt^="@"]');
+      const author = avatar?.alt.replace(/^@/, '').trim().toLowerCase() ?? '';
+      if (!author || !savedLower.has(author)) return;
+
+      const state = this.readPrStateFromRoot(row);
+      seenNumbers.add(number);
+      results.push({ url: a.href, number, state, username: author });
+    });
+
+    return results;
+  }
+
+  // Cross-reference timeline events: "@user mentioned this" / "@user linked
+  // a pull request" followed by a small card linking to the PR.
+  //
+  // The matched `.TimelineItem` node for these events does NOT contain the
+  // actor's avatar image (it lives in a sibling/ancestor outside this node),
+  // so we can't rely on `img[alt^="@"]` here. Instead we match the actor by
+  // literal text prefix: GitHub renders "{username}mentioned this…" as one
+  // concatenated text run with no separator, so checking whether the item's
+  // trimmed text *starts with* one of our saved account names is reliable
+  // and doesn't depend on any particular DOM/avatar structure.
+  private getLinkedPRsFromTimeline(): Array<{
+    url: string; number: string; state: 'open' | 'merged' | 'closed' | 'draft'; username: string;
+  }> {
+    const results: Array<{ url: string; number: string; state: 'open' | 'merged' | 'closed' | 'draft'; username: string }> = [];
+    const seenNumbers = new Set<string>();
+
+    const allItems = document.querySelectorAll<HTMLElement>('.TimelineItem, [data-testid*="timeline"]');
+
+    allItems.forEach(item => {
+      const text = (item.textContent ?? '').trim();
+      if (!/mentioned this|linked a pull request|referenced this/i.test(text)) return;
+
+      const matchedUser = this.myAccounts.find(account => {
+        const re = new RegExp(`^${this.escapeRegExp(account)}\\s*(mentioned this|linked a pull request|referenced this)`, 'i');
+        return re.test(text);
+      });
+      if (!matchedUser) return;
+
+      const prLink = item.querySelector<HTMLAnchorElement>('a[href*="/pull/"]');
+      if (!prLink) return;
+      const match = (prLink.getAttribute('href') ?? '').match(/\/pull\/(\d+)/);
+      if (!match) return;
+      const number = match[1];
+      if (seenNumbers.has(number)) return;
+
+      const state = this.readPrStateFromRoot(item);
+      seenNumbers.add(number);
+      results.push({ url: prLink.href, number, state, username: matchedUser.toLowerCase() });
+    });
+
+    return results;
+  }
+
+  private escapeRegExp(s: string): string {
+    return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  private readPrStateFromRoot(root: HTMLElement): 'open' | 'merged' | 'closed' | 'draft' {
+    const stateIcon  = root.querySelector<HTMLElement>('[aria-label*="Pull Request" i], svg[aria-label]');
+    const stateLabel = (stateIcon?.getAttribute('aria-label') ?? '').toLowerCase();
+    return (
+      stateLabel.includes('draft')  ? 'draft'  :
+      stateLabel.includes('merged') ? 'merged' :
+      stateLabel.includes('closed') ? 'closed' :
+      'open'
+    );
+  }
+
+  private findDevelopmentSectionRoot(): HTMLElement | null {
+    const headings = document.querySelectorAll<HTMLElement>('h2, h3, h4, span, div');
+    for (const heading of headings) {
+      // Exact-match trimmed text — safe even if the heading wraps an icon + text
+      // node, since an SVG contributes no textContent of its own.
+      if (heading.textContent?.trim().toLowerCase() === 'development') {
+        // Walk up to a reasonably-sized ancestor that also contains the PR
+        // links, rather than assuming a specific class/section wrapper.
+        let root: HTMLElement | null = heading.parentElement;
+        for (let i = 0; i < 4 && root; i++) {
+          if (root.querySelector('a[href*="/pull/"]')) return root;
+          root = root.parentElement;
+        }
+        return heading.parentElement;
+      }
+    }
+    return null;
+  }
+
   // ─── Load-more auto-click ───────────────────────────────────────────────
   // Only runs on issue and PR pages so it doesn't accidentally click
   // "Show more" buttons on unrelated pages (repo file browser, etc.).

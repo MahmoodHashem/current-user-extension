@@ -5,11 +5,51 @@ export const STYLES = `
 .gh-guard-notice *,
 .gh-guard-ta-overlay *,
 .gh-guard-popover *,
-#gh-scroll-bottom-btn {
+#gh-scroll-bottom-btn,
+.gh-id-linked-pr-badge * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LINKED PR BADGE — beside the issue's Open/Closed state pill
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.gh-id-linked-pr-badge {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 6px;
+  height: 32px; 
+  box-sizing: border-box;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  text-decoration: none;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 0.12s ease, filter 0.12s ease;
+}
+.gh-id-linked-pr-badge:hover {
+  filter: brightness(0.95);
+  transform: translateY(-1px);
+}
+.gh-id-linked-pr-avatar {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: block;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+.gh-id-linked-pr-number {
+  line-height: 1;
+  white-space: nowrap;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -552,6 +592,7 @@ input:checked ~ .gh-guard-track .gh-guard-thumb    { transform: translateX(15px)
 [data-color-mode="dark"] .gh-id-guard-circle {
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
 }
+[data-color-mode="dark"] .gh-id-linked-pr-badge:hover { filter: brightness(1.15); }
 [data-color-mode="dark"] #gh-scroll-bottom-btn {
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
 }

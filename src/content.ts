@@ -12,6 +12,7 @@ import { Topbar }          from './components/topbar';
 import { CommentAvatar }   from './components/commentAvatar';
 import { GuardOverlay }    from './components/guardOverlay';
 import { ScrollToBottom }  from './components/scrollToBottom';
+import { LinkedPrBadge }   from './components/linkedPrBadge';
 import { AccountExtractor } from './services/accountExtractor';
 import { AccountGuard }    from './services/accountGuard';
 import { STYLES }          from './styles';
@@ -27,6 +28,7 @@ class IdentityWidget {
   private readonly guard          = new AccountGuard();
   private readonly guardOverlay   = new GuardOverlay();
   private readonly scrollToBottom = new ScrollToBottom();
+  private readonly linkedPrBadge  = new LinkedPrBadge();
 
   private stylesInjected   = false;
   private navDebounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -45,6 +47,7 @@ class IdentityWidget {
 
     // Load account list from storage (async, once per page lifetime).
     await this.guard.init();
+    this.linkedPrBadge.mount(this.guard);
 
     // When guard state changes (storage update, new comments, toggle flip) propagate everywhere.
     this.guard.setOnStateChange(state => {
@@ -134,6 +137,7 @@ class IdentityWidget {
         AccountGuard.clickLoadMore();
         this.guard.recheck();
         this.scrollToBottom.recheck();
+        this.linkedPrBadge.recheck();
         this.guardRafPending = false;
       });
     });
@@ -169,6 +173,7 @@ class IdentityWidget {
       this.teardown();
       this.initialise();
       this.scrollToBottom.recheck();
+      this.linkedPrBadge.recheck();
     }, NAV_DEBOUNCE_MS);
   }
 
