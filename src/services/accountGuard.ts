@@ -299,28 +299,35 @@ export class AccountGuard {
    * exactly "Proposal") and ranks each saved account by the order their
    * first proposal appears in the thread. Only meaningful on issue pages.
    */
-  getProposalStats(): { total: number; ranksByUser: Record<string, number> } {
-    if (!/\/issues\/\d+/.test(location.pathname)) return { total: 0, ranksByUser: {} };
+  getProposalStats(): {
+    total: number;
+    ranksByUser: Record<string, number>;
+    proposals: Array<{ rank: number; username: string; url: string }>;
+  } {
+    if (!/\/issues\/\d+/.test(location.pathname)) return { total: 0, ranksByUser: {}, proposals: [] };
 
     const commentEls = document.querySelectorAll<HTMLElement>('[id^="issuecomment-"]');
     const ranksByUser: Record<string, number> = {};
+    const proposals: Array<{ rank: number; username: string; url: string }> = [];
+    const base = location.href.split('#')[0];
     let total = 0;
 
     commentEls.forEach(el => {
       if (!this.isProposalComment(el)) return;
       total++;
-      console.log("comment is proposal ", total); 
+      console.log("comment is proposal ", total);
 
       const avatar = el.querySelector<HTMLImageElement>('img[alt^="@"]');
       const author = avatar?.alt.replace(/^@/, '').trim().toLowerCase();
-      if (author && !(author in ranksByUser)) {
-        ranksByUser[author] = total;
+      if (author) {
+        if (!(author in ranksByUser)) ranksByUser[author] = total;
+        proposals.push({ rank: total, username: author, url: `${base}#${el.id}` });
       }
     });
 
-    console.log("Proposal stats ", { total, ranksByUser });
+    console.log("Proposal stats ", { total, ranksByUser, proposals });
 
-    return { total, ranksByUser };
+    return { total, ranksByUser, proposals };
   }
 
   private isProposalComment(commentEl: HTMLElement): boolean {

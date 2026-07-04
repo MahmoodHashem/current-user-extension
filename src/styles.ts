@@ -6,7 +6,11 @@ export const STYLES = `
 .gh-guard-ta-overlay *,
 .gh-guard-popover *,
 #gh-scroll-bottom-btn,
-.gh-id-linked-pr-badge * {
+.gh-id-linked-pr-badge *,
+.gh-id-proposal-count-badge,
+.gh-id-proposal-count-badge *,
+.gh-id-proposal-popover,
+.gh-id-proposal-popover * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
@@ -72,11 +76,122 @@ export const STYLES = `
   font-weight: 600;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   line-height: 1;
-  cursor: default;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+.gh-id-proposal-count-badge:hover {
+  background: var(--color-neutral-muted, rgba(175,184,193,0.2));
+  border-color: var(--color-fg-muted, #656d76);
+}
+.gh-id-proposal-count-badge[aria-expanded="true"] {
+  background: var(--color-neutral-muted, rgba(175,184,193,0.25));
+  border-color: var(--color-fg-default, #1f2328);
+}
+.gh-id-proposal-count-badge:focus-visible {
+  outline: 2px solid var(--color-accent-fg, #0969da);
+  outline-offset: 2px;
 }
 .gh-id-proposal-count-number {
   line-height: 1;
   white-space: nowrap;
+}
+
+/* ── Proposal list popover ───────────────────────────────────────────────── */
+
+.gh-id-proposal-popover {
+  position: fixed;
+  z-index: 200;
+  background: var(--color-canvas-default, #ffffff);
+  border: 1px solid var(--color-border-default, #d0d7de);
+  border-radius: 12px;
+  box-shadow: 0 8px 28px rgba(31, 35, 40, 0.18);
+  padding: 10px;
+  opacity: 0;
+  transform: translateY(-6px);
+  pointer-events: none;
+  transition: opacity 0.14s ease, transform 0.14s ease;
+}
+.gh-id-proposal-popover--open {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: all;
+}
+.gh-id-proposal-pop-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-fg-default, #1f2328);
+  padding: 2px 6px 8px;
+}
+.gh-id-proposal-pop-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+.gh-id-proposal-pop-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+.gh-id-proposal-pop-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  border-radius: 8px;
+  text-decoration: none;
+  transition: background 0.1s;
+}
+.gh-id-proposal-pop-row:hover { background: var(--color-neutral-muted, rgba(175,184,193,0.15)); }
+.gh-id-proposal-pop-rank {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--color-neutral-muted, rgba(175,184,193,0.3));
+  color: var(--color-fg-default, #1f2328);
+  font-size: 10px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.gh-id-proposal-pop-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+.gh-id-proposal-pop-name {
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--color-fg-default, #1f2328);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+.gh-id-proposal-pop-row--saved {
+  background: color-mix(in srgb, var(--color-accent-fg, #0969da) 8%, transparent);
+}
+.gh-id-proposal-pop-row--saved:hover {
+  background: color-mix(in srgb, var(--color-accent-fg, #0969da) 14%, transparent);
+}
+.gh-id-proposal-pop-row--saved .gh-id-proposal-pop-name {
+  color: var(--color-accent-fg, #0969da);
+  font-weight: 600;
+}
+.gh-id-proposal-pop-row--saved .gh-id-proposal-pop-rank {
+  background: var(--color-accent-fg, #0969da);
+  color: #fff;
+}
+.gh-id-proposal-pop-star {
+  color: var(--color-accent-fg, #0969da);
+  font-size: 11px;
+  flex-shrink: 0;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -630,7 +745,8 @@ input:checked ~ .gh-guard-track .gh-guard-thumb    { transform: translateX(15px)
    ══════════════════════════════════════════════════════════════════════════ */
 
 [data-color-mode="dark"] .gh-id-avatar-tooltip,
-[data-color-mode="dark"] .gh-guard-popover {
+[data-color-mode="dark"] .gh-guard-popover,
+[data-color-mode="dark"] .gh-id-proposal-popover {
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
 }
 [data-color-mode="dark"] .gh-id-guard-circle {

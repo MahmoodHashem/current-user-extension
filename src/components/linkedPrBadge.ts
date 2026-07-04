@@ -90,11 +90,20 @@ export class LinkedPrBadge {
       badge.style.borderColor = `${color}40`;
       badge.style.background = `${color}14`;
       if (pillHeight > 0) badge.style.height = `${pillHeight}px`;
-      badge.innerHTML =
-        PR_SVG +
-        `<img class="gh-id-linked-pr-avatar" src="https://github.com/${this.esc(primary.username)}.png?size=32"
-              width="16" height="16" alt="" loading="lazy" />` +
-        `<span class="gh-id-linked-pr-number">#${this.esc(primary.number)}</span>`;
+
+      // Only touch innerHTML when the PR actually changed. The guard's
+      // MutationObserver watches childList across the whole page, so an
+      // unconditional innerHTML write here re-triggers it every tick —
+      // recheck() -> mutation -> scheduled recheck() -> mutation -> forever.
+      const sig = `${primary.number}|${primary.state}|${primary.username}`;
+      if (badge.dataset.ghSig !== sig) {
+        badge.dataset.ghSig = sig;
+        badge.innerHTML =
+          PR_SVG +
+          `<img class="gh-id-linked-pr-avatar" src="https://github.com/${this.esc(primary.username)}.png?size=32"
+                width="16" height="16" alt="" loading="lazy" />` +
+          `<span class="gh-id-linked-pr-number">#${this.esc(primary.number)}</span>`;
+      }
     });
   }
 
