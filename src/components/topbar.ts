@@ -284,6 +284,8 @@ export class Topbar {
       ? [currentUser, ...myAccounts.filter(a => a.toLowerCase() !== currentUser.toLowerCase())]
       : myAccounts;
 
+    const { ranksByUser } = this.guard!.getProposalStats();
+
     // Role -> icon, border/icon color, light background
     const ROLE_ICON:    Record<string, string> = { author: PROPOSAL_SVG };
     const ROLE_COLOR:   Record<string, string> = {
@@ -301,12 +303,16 @@ export class Topbar {
       const { commentUrl, role } = this.guard!.getParticipation(u);
       if (!commentUrl) return [];
       const isMe    = u.toLowerCase() === currentUser.toLowerCase();
+      const rank    = ranksByUser[u.toLowerCase()];
       const label   = isMe
-        ? (role === 'author' ? 'Your proposal' : 'Your comment')
-        : (role === 'author' ? `@${u}` + "'s proposal" : `@${u}` + "'s comment");
+        ? (role === 'author' ? 'Your proposal' : 'Your comment') + (rank ? ` (#${rank})` : '')
+        : (role === 'author' ? `@${u}` + "'s proposal" : `@${u}` + "'s comment") + (rank ? ` (#${rank})` : '');
       const icon    = ROLE_ICON[role ?? ''] ?? COMMENT_SVG;
       const color   = ROLE_COLOR[role ?? ''] ?? '#656d76';
       const bg      = ROLE_BG[role ?? '']   ?? '#6567761a';
+      const rankBadge = rank
+        ? '<span class="gh-id-pc-rank">' + rank + '</span>'
+        : '';
       return [
         '<a class="gh-id-proposal-circle"' +
         ' href="' + this.esc(commentUrl) + '"' +
@@ -318,6 +324,7 @@ export class Topbar {
         '<img class="gh-id-pc-avatar"' +
         ' src="https://github.com/' + this.esc(u) + '.png?size=32"' +
         ' width="14" height="14" alt="" loading="lazy" />' +
+        rankBadge +
         '</a>'
       ];
     });

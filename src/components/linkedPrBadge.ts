@@ -61,7 +61,6 @@ export class LinkedPrBadge {
     stateEls.forEach(stateEl => {
       const host = stateEl.parentElement;
       if (!host) return;
-      if (host.querySelector(`.${BADGE_CLASS}`)) return; // already injected
 
       // Force the host into a row layout and match the state pill's own
       // height, since GitHub's wrapper classes are hashed/unstable and we
@@ -71,12 +70,20 @@ export class LinkedPrBadge {
       host.style.flexDirection = 'row';
       host.style.gap           = '8px';
 
-      const pillHeight = stateEl.getBoundingClientRect().height;
+      // Reuse the existing badge if present and refresh its content — the
+      // primary PR (and its state) can change as more timeline/sidebar
+      // content lazy-loads, so skipping entirely would freeze it at
+      // whatever was true on the first render.
+      let badge = host.querySelector<HTMLAnchorElement>(`.${BADGE_CLASS}`);
+      if (!badge) {
+        badge = document.createElement('a');
+        badge.className = BADGE_CLASS;
+        badge.target = '_blank';
+        host.appendChild(badge);
+      }
 
-      const badge = document.createElement('a');
-      badge.className = BADGE_CLASS;
+      const pillHeight = stateEl.getBoundingClientRect().height;
       badge.href = primary.url;
-      badge.target = '_blank';
       badge.title = label;
       badge.setAttribute('aria-label', label);
       badge.style.color = color;
@@ -88,8 +95,6 @@ export class LinkedPrBadge {
         `<img class="gh-id-linked-pr-avatar" src="https://github.com/${this.esc(primary.username)}.png?size=32"
               width="16" height="16" alt="" loading="lazy" />` +
         `<span class="gh-id-linked-pr-number">#${this.esc(primary.number)}</span>`;
-
-      host.appendChild(badge);
     });
   }
 

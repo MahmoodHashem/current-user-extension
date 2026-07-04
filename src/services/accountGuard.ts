@@ -291,6 +291,65 @@ export class AccountGuard {
     return false;
   }
 
+  // ─── Proposal count + ranking ──────────────────────────────────────────────
+
+  /**
+   * Counts "Proposal" comments in the current issue thread (Expensify-style
+   * bounty proposals — a comment whose body has a heading/bold line reading
+   * exactly "Proposal") and ranks each saved account by the order their
+   * first proposal appears in the thread. Only meaningful on issue pages.
+   */
+  getProposalStats(): { total: number; ranksByUser: Record<string, number> } {
+    if (!/\/issues\/\d+/.test(location.pathname)) return { total: 0, ranksByUser: {} };
+
+    const commentEls = document.querySelectorAll<HTMLElement>('[id^="issuecomment-"]');
+    const ranksByUser: Record<string, number> = {};
+    let total = 0;
+
+    commentEls.forEach(el => {
+      if (!this.isProposalComment(el)) return;
+      total++;
+      console.log("comment is proposal ", total); 
+
+      const avatar = el.querySelector<HTMLImageElement>('img[alt^="@"]');
+      const author = avatar?.alt.replace(/^@/, '').trim().toLowerCase();
+      if (author && !(author in ranksByUser)) {
+        ranksByUser[author] = total;
+      }
+    });
+
+    console.log("Proposal stats ", { total, ranksByUser });
+
+    return { total, ranksByUser };
+  }
+
+  private isProposalComment(commentEl: HTMLElement): boolean {
+    const body = this.findCommentBody(commentEl);
+  
+    const candidates = body.querySelectorAll('h1, h2, h3, h4, h5, h6, strong, b');
+    
+    for (const c of candidates) {
+      if (c.textContent?.trim().toLowerCase() === 'proposal' || c.textContent?.trim().toLowerCase() === 'what is the root cause of that problem?' || c.textContent?.trim().toLowerCase() === 'what changes do you think we should make in order to solve the problem?' || c.textContent?.trim().toLowerCase() === 'what alternative solutions did you explore? (Optional)') return true;
+    }
+
+    console.log("Not a proposal comment ", body);
+    return false;
+  }
+
+  // In GitHub's newer React comment viewer, `id="issuecomment-…"` is on the
+  // HEADER only (data-testid="comment-header") — author name, avatar,
+  // timestamp. The rendered markdown body lives in a SIBLING div under the
+  // same outer wrapper (data-testid="markdown-body"), not inside the header.
+  // So we search from the header's parent, not the header itself.
+  private findCommentBody(commentEl: HTMLElement): HTMLElement {
+    const scope = commentEl.parentElement ?? commentEl;
+    return (
+      scope.querySelector<HTMLElement>(
+        '[data-testid="markdown-body"], .markdown-body, .comment-body, .js-comment-body, [data-testid="comment-body"]',
+      ) ?? commentEl
+    );
+  }
+
   // ─── Linked PRs (Development sidebar + timeline cross-references) ────────
 
   /**

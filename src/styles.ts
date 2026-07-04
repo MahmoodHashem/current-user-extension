@@ -53,6 +53,33 @@ export const STYLES = `
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
+   PROPOSAL COUNT BADGE — before the issue's Open/Closed state pill
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.gh-id-proposal-count-badge {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 6px;
+  height: 32px;
+  box-sizing: border-box;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border-default, #d0d7de);
+  background: var(--color-canvas-subtle, #f6f8fa);
+  color: var(--color-fg-default, #1f2328);
+  font-size: 14px;
+  font-weight: 600;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  line-height: 1;
+  cursor: default;
+}
+.gh-id-proposal-count-number {
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
    SCROLL-TO-BOTTOM BUTTON — bottom-right corner
    ══════════════════════════════════════════════════════════════════════════ */
 
@@ -157,6 +184,23 @@ export const STYLES = `
   border: 2px solid #fff;
   object-fit: cover;
   display: block;
+}
+.gh-id-pc-rank {
+  position: absolute;
+  top: -5px;
+  left: -5px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
+  border-radius: 999px;
+  background: #1f2328;
+  color: #fff;
+  border: 2px solid #fff;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 12px;
+  text-align: center;
+  box-sizing: border-box;
 }
 
 
@@ -593,6 +637,11 @@ input:checked ~ .gh-guard-track .gh-guard-thumb    { transform: translateX(15px)
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
 }
 [data-color-mode="dark"] .gh-id-linked-pr-badge:hover { filter: brightness(1.15); }
+[data-color-mode="dark"] .gh-id-proposal-count-badge {
+  background: var(--color-canvas-subtle, #161b22);
+  border-color: var(--color-border-default, #30363d);
+  color: var(--color-fg-default, #e6edf3);
+}
 [data-color-mode="dark"] #gh-scroll-bottom-btn {
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
 }
@@ -606,6 +655,7 @@ input:checked ~ .gh-guard-track .gh-guard-thumb    { transform: translateX(15px)
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5), 0 0 0 2px #0d1117;
 }
 [data-color-mode="dark"] .gh-id-pc-avatar { border-color: #0d1117; }
+[data-color-mode="dark"] .gh-id-pc-rank   { border-color: #0d1117; background: #e6edf3; color: #1f2328; }
 [data-color-mode="dark"] .gh-guard-track    { background: #30363d; }
 [data-color-mode="dark"] input:checked ~ .gh-guard-track { background: #238636; }
 
