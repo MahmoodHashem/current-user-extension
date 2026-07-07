@@ -12,6 +12,7 @@ import { Topbar }          from './components/topbar';
 import { CommentAvatar }   from './components/commentAvatar';
 import { GuardOverlay }    from './components/guardOverlay';
 import { ScrollToBottom }  from './components/scrollToBottom';
+import { ScrollToTop }     from './components/scrollToTop';
 import { LinkedPrBadge }   from './components/linkedPrBadge';
 import { LinkedIssueBadge } from './components/linkedIssueBadge';
 import { ProposalCountBadge } from './components/proposalCountBadge';
@@ -30,6 +31,7 @@ class IdentityWidget {
   private readonly guard          = new AccountGuard();
   private readonly guardOverlay   = new GuardOverlay();
   private readonly scrollToBottom     = new ScrollToBottom();
+  private readonly scrollToTop        = new ScrollToTop();
   private readonly linkedPrBadge      = new LinkedPrBadge();
   private readonly linkedIssueBadge   = new LinkedIssueBadge();
   private readonly proposalCountBadge = new ProposalCountBadge();
@@ -48,6 +50,7 @@ class IdentityWidget {
 
     // Page-content-agnostic — mounted once, stays alive across SPA navigations.
     this.scrollToBottom.mount();
+    this.scrollToTop.mount();
 
     // Load account list from storage (async, once per page lifetime).
     await this.guard.init();
@@ -143,6 +146,7 @@ class IdentityWidget {
         AccountGuard.clickLoadMore();
         this.guard.recheck();
         this.scrollToBottom.recheck();
+        this.scrollToTop.recheck();
         this.proposalCountBadge.recheck();
         this.linkedPrBadge.recheck();
         this.linkedIssueBadge.recheck();
@@ -181,6 +185,7 @@ class IdentityWidget {
       this.teardown();
       this.initialise();
       this.scrollToBottom.recheck();
+      this.scrollToTop.recheck();
       this.proposalCountBadge.recheck();
       this.linkedPrBadge.recheck();
       this.linkedIssueBadge.recheck();

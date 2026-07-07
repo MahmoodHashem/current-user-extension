@@ -6,6 +6,7 @@ export const STYLES = `
 .gh-guard-ta-overlay *,
 .gh-guard-popover *,
 #gh-scroll-bottom-btn,
+#gh-scroll-top-btn,
 .gh-id-linked-pr-badge *,
 .gh-id-proposal-count-badge,
 .gh-id-proposal-count-badge *,
@@ -270,6 +271,50 @@ export const STYLES = `
 }
 @media (prefers-reduced-motion: reduce) {
   #gh-scroll-bottom-btn { transition: opacity 0.01s linear; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SCROLL-TO-TOP BUTTON — bottom-right corner, stacked above scroll-to-bottom
+   ══════════════════════════════════════════════════════════════════════════ */
+
+#gh-scroll-top-btn {
+  position: fixed;
+  bottom: 76px;
+  right: 20px;
+  z-index: 95;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--color-canvas-default, #ffffff);
+  border: 1.5px solid var(--color-border-default, #d0d7de);
+  box-shadow: 0 2px 10px rgba(31, 35, 40, 0.18);
+  color: var(--color-fg-muted, #656d76);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+
+  opacity: 0;
+  transform: translateY(-10px);
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease, border-color 0.12s, color 0.12s, box-shadow 0.12s;
+}
+#gh-scroll-top-btn.gh-scroll-top-visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+#gh-scroll-top-btn:hover {
+  border-color: var(--color-fg-default, #1f2328);
+  color: var(--color-fg-default, #1f2328);
+  box-shadow: 0 4px 14px rgba(31, 35, 40, 0.26);
+}
+#gh-scroll-top-btn:focus-visible {
+  outline: 2px solid var(--color-accent-fg, #0969da);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  #gh-scroll-top-btn { transition: opacity 0.01s linear; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -801,6 +846,12 @@ input:checked ~ .gh-guard-track .gh-guard-thumb    { transform: translateX(15px)
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
 }
 [data-color-mode="dark"] #gh-scroll-bottom-btn:hover {
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+}
+[data-color-mode="dark"] #gh-scroll-top-btn {
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+}
+[data-color-mode="dark"] #gh-scroll-top-btn:hover {
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
 }
 [data-color-mode="dark"] .gh-id-proposal-circle {
