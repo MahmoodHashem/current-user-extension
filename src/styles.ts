@@ -7,7 +7,10 @@ export const STYLES = `
 .gh-guard-popover *,
 #gh-scroll-bottom-btn,
 #gh-scroll-top-btn,
+.gh-id-linked-pr-badge,
 .gh-id-linked-pr-badge *,
+.gh-id-linked-pr-popover,
+.gh-id-linked-pr-popover *,
 .gh-id-proposal-count-badge,
 .gh-id-proposal-count-badge *,
 .gh-id-proposal-popover,
@@ -55,6 +58,101 @@ export const STYLES = `
 .gh-id-linked-pr-number {
   line-height: 1;
   white-space: nowrap;
+}
+.gh-id-linked-pr-more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.12);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+/* ── Linked PR list popover ──────────────────────────────────────────────── */
+
+.gh-id-linked-pr-popover {
+  position: fixed;
+  z-index: 200;
+  background: var(--color-canvas-default, #ffffff);
+  border: 1px solid var(--color-border-default, #d0d7de);
+  border-radius: 12px;
+  box-shadow: 0 8px 28px rgba(31, 35, 40, 0.18);
+  padding: 10px;
+  opacity: 0;
+  transform: translateY(-6px);
+  pointer-events: none;
+  transition: opacity 0.14s ease, transform 0.14s ease;
+}
+.gh-id-linked-pr-popover--open {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: all;
+}
+.gh-id-linked-pr-pop-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-fg-default, #1f2328);
+  padding: 2px 6px 8px;
+}
+.gh-id-linked-pr-pop-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+.gh-id-linked-pr-pop-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+.gh-id-linked-pr-pop-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  border-radius: 8px;
+  text-decoration: none;
+  transition: background 0.1s;
+}
+.gh-id-linked-pr-pop-row:hover { background: var(--color-neutral-muted, rgba(175,184,193,0.15)); }
+.gh-id-linked-pr-pop-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+.gh-id-linked-pr-pop-number {
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--color-fg-default, #1f2328);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.gh-id-linked-pr-pop-name {
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--color-fg-muted, #656d76);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+.gh-id-linked-pr-pop-state {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  padding: 2px 6px;
+  border-radius: 999px;
+  flex-shrink: 0;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -825,7 +923,8 @@ input:checked ~ .gh-guard-track .gh-guard-thumb    { transform: translateX(15px)
 
 [data-color-mode="dark"] .gh-id-avatar-tooltip,
 [data-color-mode="dark"] .gh-guard-popover,
-[data-color-mode="dark"] .gh-id-proposal-popover {
+[data-color-mode="dark"] .gh-id-proposal-popover,
+[data-color-mode="dark"] .gh-id-linked-pr-popover {
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
 }
 [data-color-mode="dark"] .gh-id-guard-circle {
