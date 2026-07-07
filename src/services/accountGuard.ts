@@ -488,6 +488,70 @@ export class AccountGuard {
     );
   }
 
+  // ─── Linked issue (on PR pages) ─────────────────────────────────────────────
+
+  /**
+   * Finds the issue this PR closes/references. Only meaningful on PR pages.
+   *
+   * This repo's PR template deliberately avoids GitHub's native closing
+   * keywords ("Do NOT add the special GH keywords like `fixed`, etc — we
+   * have our own process"), so the sidebar "Development" section is rarely
+   * populated. The reliable signal is the "Fixed Issues" convention in the
+   * PR body: a literal `$` marker immediately followed by a link to the
+   * issue, e.g. `$ #89594` / `$ https://github.com/…/issues/89594`.
+   *
+   * That body also frequently contains a SECOND /issues/ link on the very
+   * next line — `PROPOSAL: #89594 (comment)` — which points at the same
+   * issue via a comment anchor. We must not accidentally prefer that one,
+   * so `$`-prefixed anchors are matched first; any other /issues/ link
+   * (Development sidebar, or a bare fallback) is used only if no `$` marker
+   * is found at all.
+   */
+  getLinkedIssueForPR(): { url: string; number: string } | null {
+    if (!/\/pull\/\d+/.test(location.pathname)) return null;
+
+  
+    const firstBody = document.querySelector<HTMLElement>('[data-testid="markdown-body"], .markdown-body');
+
+
+    if (firstBody) {
+      const issueAnchors = firstBody.querySelectorAll<HTMLAnchorElement>(
+        'a.issue-link, a[data-hovercard-type="issue"], a[href*="/issues/"]',
+      );
+
+      // Pass 1: prefer an anchor whose immediately preceding text contains
+      // "$" — the canonical "Fixed Issues" marker for this convention.
+      for (const a of issueAnchors) {
+        const text = a?.textContent ?? '';
+        // Regex matches text containing "$"
+        if (/\$/.test(text)) {
+          const match = (a.getAttribute('href') ?? a.href).match(/\/issues\/(\d+)/);
+          if (match) { return { url: a.href, number: match[1] }};
+        }
+      }
+
+      // Pass 2: no "$" marker found — fall back to the first issue link in
+      // the body (still better than nothing, e.g. repos using plain "Fixes").
+      for (const a of issueAnchors) {
+        const match = (a.getAttribute('href') ?? a.href).match(/\/issues\/(\d+)/);
+        if (match) { return { url: a.href, number: match[1] }};
+      }
+    }
+
+    // Last resort: the sidebar "Development"-style section (same heading
+    // GitHub uses on issue pages), for repos that DO use native keywords.
+    const devRoot = this.findDevelopmentSectionRoot();
+    if (devRoot) {
+      const a = devRoot.querySelector<HTMLAnchorElement>('a[href*="/issues/"]');
+      if (a) {
+        const match = (a.getAttribute('href') ?? '').match(/\/issues\/(\d+)/);
+        if (match) return { url: a.href, number: match[1] };
+      }
+    }
+
+    return null;
+  }
+
   private findDevelopmentSectionRoot(): HTMLElement | null {
     const headings = document.querySelectorAll<HTMLElement>('h2, h3, h4, span, div');
     for (const heading of headings) {

@@ -13,6 +13,7 @@ import { CommentAvatar }   from './components/commentAvatar';
 import { GuardOverlay }    from './components/guardOverlay';
 import { ScrollToBottom }  from './components/scrollToBottom';
 import { LinkedPrBadge }   from './components/linkedPrBadge';
+import { LinkedIssueBadge } from './components/linkedIssueBadge';
 import { ProposalCountBadge } from './components/proposalCountBadge';
 import { AccountExtractor } from './services/accountExtractor';
 import { AccountGuard }    from './services/accountGuard';
@@ -30,6 +31,7 @@ class IdentityWidget {
   private readonly guardOverlay   = new GuardOverlay();
   private readonly scrollToBottom     = new ScrollToBottom();
   private readonly linkedPrBadge      = new LinkedPrBadge();
+  private readonly linkedIssueBadge   = new LinkedIssueBadge();
   private readonly proposalCountBadge = new ProposalCountBadge();
 
   private stylesInjected   = false;
@@ -50,6 +52,7 @@ class IdentityWidget {
     // Load account list from storage (async, once per page lifetime).
     await this.guard.init();
     this.linkedPrBadge.mount(this.guard);
+    this.linkedIssueBadge.mount(this.guard);
     this.proposalCountBadge.mount(this.guard);
 
     // When guard state changes (storage update, new comments, toggle flip) propagate everywhere.
@@ -142,6 +145,7 @@ class IdentityWidget {
         this.scrollToBottom.recheck();
         this.proposalCountBadge.recheck();
         this.linkedPrBadge.recheck();
+        this.linkedIssueBadge.recheck();
         this.guardRafPending = false;
       });
     });
@@ -179,6 +183,7 @@ class IdentityWidget {
       this.scrollToBottom.recheck();
       this.proposalCountBadge.recheck();
       this.linkedPrBadge.recheck();
+      this.linkedIssueBadge.recheck();
     }, NAV_DEBOUNCE_MS);
   }
 

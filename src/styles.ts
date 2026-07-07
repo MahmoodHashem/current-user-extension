@@ -57,6 +57,40 @@ export const STYLES = `
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
+   LINKED ISSUE BADGE — beside the PR's Open/Closed/Merged state pill
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.gh-id-linked-issue-badge {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 6px;
+  height: 32px;
+  box-sizing: border-box;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border-default, #d0d7de);
+  background: var(--color-canvas-subtle, #f6f8fa);
+  color: var(--color-fg-default, #1f2328);
+  font-size: 14px;
+  font-weight: 600;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  text-decoration: none;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 0.12s ease, filter 0.12s ease, background 0.12s ease, border-color 0.12s ease;
+}
+.gh-id-linked-issue-badge:hover {
+  transform: translateY(-1px);
+  background: var(--color-neutral-muted, rgba(175,184,193,0.2));
+  border-color: var(--color-fg-muted, #656d76);
+}
+.gh-id-linked-issue-number {
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
    PROPOSAL COUNT BADGE — before the issue's Open/Closed state pill
    ══════════════════════════════════════════════════════════════════════════ */
 
@@ -754,6 +788,11 @@ input:checked ~ .gh-guard-track .gh-guard-thumb    { transform: translateX(15px)
 }
 [data-color-mode="dark"] .gh-id-linked-pr-badge:hover { filter: brightness(1.15); }
 [data-color-mode="dark"] .gh-id-proposal-count-badge {
+  background: var(--color-canvas-subtle, #161b22);
+  border-color: var(--color-border-default, #30363d);
+  color: var(--color-fg-default, #e6edf3);
+}
+[data-color-mode="dark"] .gh-id-linked-issue-badge {
   background: var(--color-canvas-subtle, #161b22);
   border-color: var(--color-border-default, #30363d);
   color: var(--color-fg-default, #e6edf3);
